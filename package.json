@@ -1,0 +1,25 @@
+{
+  "name": "max-msp-oscquery-client",
+  "version": "1.0.0",
+  "description": "Max/MSP OSCQuery Client using node.script",
+  "main": "oscquery.client.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "max",
+    "msp",
+    "oscquery",
+    "osc",
+    "node.script"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "ws": "^8.14.2"
+  },
+  "engines": {
+    "node": ">=12.0.0"
+  }
+}
+
