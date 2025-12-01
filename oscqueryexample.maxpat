@@ -13,6 +13,17 @@
         "boxes": [
             {
                 "box": {
+                    "id": "obj-5",
+                    "maxclass": "message",
+                    "numinlets": 2,
+                    "numoutlets": 1,
+                    "outlettype": [ "" ],
+                    "patching_rect": [ 140.0, 90.0, 106.0, 22.0 ],
+                    "text": "script npm version"
+                }
+            },
+            {
+                "box": {
                     "id": "obj-57",
                     "maxclass": "newobj",
                     "numinlets": 2,
@@ -410,17 +421,6 @@
             },
             {
                 "box": {
-                    "id": "obj-19",
-                    "maxclass": "button",
-                    "numinlets": 1,
-                    "numoutlets": 1,
-                    "outlettype": [ "bang" ],
-                    "parameter_enable": 0,
-                    "patching_rect": [ 284.0, 54.5, 33.0, 33.0 ]
-                }
-            },
-            {
-                "box": {
                     "id": "obj-15",
                     "maxclass": "newobj",
                     "numinlets": 1,
@@ -547,12 +547,6 @@
             {
                 "patchline": {
                     "destination": [ "obj-10", 0 ],
-                    "source": [ "obj-19", 0 ]
-                }
-            },
-            {
-                "patchline": {
-                    "destination": [ "obj-10", 0 ],
                     "source": [ "obj-2", 0 ]
                 }
             },
@@ -664,6 +658,12 @@
                 "patchline": {
                     "destination": [ "obj-57", 0 ],
                     "source": [ "obj-40", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "destination": [ "obj-10", 0 ],
+                    "source": [ "obj-5", 0 ]
                 }
             },
             {
