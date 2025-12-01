@@ -149,11 +149,77 @@ function setNestedValue(obj, pathParts, value) {
 }
 
 /**
+ * Extract expected type from structure item
+ */
+function extractTypeFromStructure(structureItem, fallbackType) {
+  if (structureItem?.type === "array" && structureItem.elements?.[0]) {
+    return structureItem.elements[0].oscType;
+  }
+  if (structureItem?.type === "primitive") {
+    return structureItem.oscType;
+  }
+  return fallbackType;
+}
+
+/**
+ * Extract expected type for a value at given index
+ */
+function extractExpectedType(typeInfo, index) {
+  if (typeInfo.isArray && typeInfo.structure && typeInfo.structure[index]) {
+    return extractTypeFromStructure(
+      typeInfo.structure[index],
+      typeInfo.baseType
+    );
+  }
+  return typeInfo.baseType;
+}
+
+/**
+ * Validate length matches expected
+ */
+function validateLength(actualLength, expectedLength, isArray) {
+  if (actualLength !== expectedLength) {
+    return {
+      valid: false,
+      error: `Expected exactly ${expectedLength} value(s) (${
+        isArray ? "array" : "single"
+      } type), got ${actualLength}`,
+    };
+  }
+  return { valid: true };
+}
+
+/**
+ * Validate all values in array
+ */
+function validateAllValues(valueArray, typeInfo, expectedLength) {
+  for (let i = 0; i < expectedLength; i++) {
+    const value = valueArray[i];
+    const expectedType = extractExpectedType(typeInfo, i);
+
+    if (!expectedType) {
+      return {
+        valid: false,
+        error: `No type information available for value at index ${i}`,
+      };
+    }
+
+    const typeMatch = checkValueType(value, expectedType);
+    if (!typeMatch.valid) {
+      return {
+        valid: false,
+        error: `Value at index ${i}: ${typeMatch.error}. Expected exact type: ${expectedType}`,
+      };
+    }
+  }
+  return { valid: true };
+}
+
+/**
  * Validate that incoming arguments match the expected typeInfo format
  */
 function validateValueFormat(valueArray, typeInfo) {
   if (!typeInfo) {
-    // Type info is required for exact type validation
     return {
       valid: false,
       error:
@@ -164,53 +230,250 @@ function validateValueFormat(valueArray, typeInfo) {
   const expectedLength = typeInfo.length || 1;
   const actualLength = valueArray.length;
 
-  // Exact length matching required
-  if (actualLength !== expectedLength) {
+  const lengthValidation = validateLength(
+    actualLength,
+    expectedLength,
+    typeInfo.isArray
+  );
+  if (!lengthValidation.valid) {
+    return lengthValidation;
+  }
+
+  return validateAllValues(valueArray, typeInfo, expectedLength);
+}
+
+/**
+ * Validate null/undefined values for nil/impulse types
+ */
+function validateNullish(value, expectedOscType) {
+  if (expectedOscType === "N" || expectedOscType === "I") {
+    return { valid: true };
+  }
+  return {
+    valid: false,
+    error: `null/undefined not allowed for type ${expectedOscType}`,
+  };
+}
+
+/**
+ * Validate int32 type
+ */
+function validateInt32(value) {
+  if (typeof value !== "number" || !Number.isInteger(value)) {
     return {
       valid: false,
-      error: `Expected exactly ${expectedLength} value(s) (${
-        typeInfo.isArray ? "array" : "single"
-      } type), got ${actualLength}`,
+      error: `Expected integer (int32), got ${typeof value}${
+        typeof value === "number" ? " (not an integer)" : ""
+      }`,
     };
   }
+  if (value < -2147483648 || value > 2147483647) {
+    return {
+      valid: false,
+      error: `Integer value ${value} out of int32 range (-2147483648 to 2147483647)`,
+    };
+  }
+  return { valid: true };
+}
 
-  // Validate each value's type - exact matching required
-  for (let i = 0; i < expectedLength; i++) {
-    const value = valueArray[i];
-    let expectedType;
+/**
+ * Validate float32 type
+ */
+function validateFloat32(value) {
+  if (typeof value !== "number") {
+    return {
+      valid: false,
+      error: `Expected number (float32), got ${typeof value}`,
+    };
+  }
+  return { valid: true };
+}
 
-    if (typeInfo.isArray && typeInfo.structure && typeInfo.structure[i]) {
-      const structureItem = typeInfo.structure[i];
-      if (structureItem?.type === "array" && structureItem.elements?.[0]) {
-        expectedType = structureItem.elements[0].oscType;
-      } else if (structureItem?.type === "primitive") {
-        expectedType = structureItem.oscType;
-      } else {
-        expectedType = typeInfo.baseType;
+/**
+ * Validate double type
+ */
+function validateDouble(value) {
+  if (typeof value !== "number") {
+    return {
+      valid: false,
+      error: `Expected number (double), got ${typeof value}`,
+    };
+  }
+  return { valid: true };
+}
+
+/**
+ * Validate string/symbol type
+ */
+function validateString(value) {
+  if (typeof value !== "string") {
+    return {
+      valid: false,
+      error: `Expected string, got ${typeof value}`,
+    };
+  }
+  return { valid: true };
+}
+
+/**
+ * Validate blob type
+ */
+function validateBlob(value) {
+  if (!Array.isArray(value) && !Buffer.isBuffer(value)) {
+    return {
+      valid: false,
+      error: `Expected array or Buffer for blob, got ${typeof value}`,
+    };
+  }
+  if (Array.isArray(value)) {
+    for (let j = 0; j < value.length; j++) {
+      if (
+        typeof value[j] !== "number" ||
+        !Number.isInteger(value[j]) ||
+        value[j] < 0 ||
+        value[j] > 255
+      ) {
+        return {
+          valid: false,
+          error: `Blob array must contain integers 0-255, got invalid value at index ${j}`,
+        };
       }
-    } else {
-      expectedType = typeInfo.baseType;
     }
+  }
+  return { valid: true };
+}
 
-    if (!expectedType) {
+/**
+ * Validate int64 type
+ */
+function validateInt64(value) {
+  if (typeof value !== "number" && typeof value !== "bigint") {
+    return {
+      valid: false,
+      error: `Expected number or bigint, got ${typeof value}`,
+    };
+  }
+  return { valid: true };
+}
+
+/**
+ * Validate char type
+ */
+function validateChar(value) {
+  if (typeof value !== "string" || value.length !== 1) {
+    return {
+      valid: false,
+      error: `Expected single character string, got ${typeof value}`,
+    };
+  }
+  return { valid: true };
+}
+
+/**
+ * Validate RGBA type
+ */
+function validateRGBA(value) {
+  if (
+    typeof value !== "string" &&
+    !Array.isArray(value) &&
+    typeof value !== "object"
+  ) {
+    return {
+      valid: false,
+      error: `Expected string, array, or object for RGBA, got ${typeof value}`,
+    };
+  }
+  return { valid: true };
+}
+
+/**
+ * Validate MIDI type
+ */
+function validateMIDI(value) {
+  if (!Array.isArray(value)) {
+    return {
+      valid: false,
+      error: `Expected array for MIDI, got ${typeof value}`,
+    };
+  }
+  if (value.length !== 4) {
+    return {
+      valid: false,
+      error: `Expected exactly 4 bytes for MIDI, got ${value.length}`,
+    };
+  }
+  for (let j = 0; j < 4; j++) {
+    if (
+      typeof value[j] !== "number" ||
+      !Number.isInteger(value[j]) ||
+      value[j] < 0 ||
+      value[j] > 255
+    ) {
       return {
         valid: false,
-        error: `No type information available for value at index ${i}`,
-      };
-    }
-
-    // Check value type matches expected OSC type exactly
-    const typeMatch = checkValueType(value, expectedType);
-    if (!typeMatch.valid) {
-      return {
-        valid: false,
-        error: `Value at index ${i}: ${typeMatch.error}. Expected exact type: ${expectedType}`,
+        error: `MIDI byte at index ${j} must be integer 0-255, got ${value[j]}`,
       };
     }
   }
-
   return { valid: true };
 }
+
+/**
+ * Validate boolean true type
+ */
+function validateTrue(value) {
+  if (value !== true) {
+    return {
+      valid: false,
+      error: `Expected exact boolean true, got ${typeof value} (${value})`,
+    };
+  }
+  return { valid: true };
+}
+
+/**
+ * Validate boolean false type
+ */
+function validateFalse(value) {
+  if (value !== false) {
+    return {
+      valid: false,
+      error: `Expected exact boolean false, got ${typeof value} (${value})`,
+    };
+  }
+  return { valid: true };
+}
+
+/**
+ * Validate nil/impulse type
+ */
+function validateNil(value, expectedOscType) {
+  if (value !== null && value !== undefined) {
+    return {
+      valid: false,
+      error: `Expected null/undefined for ${expectedOscType}, got ${typeof value}`,
+    };
+  }
+  return { valid: true };
+}
+
+/**
+ * Type validator map
+ */
+const TYPE_VALIDATORS = {
+  i: validateInt32,
+  f: validateFloat32,
+  d: validateDouble,
+  s: validateString,
+  S: validateString,
+  b: validateBlob,
+  h: validateInt64,
+  c: validateChar,
+  r: validateRGBA,
+  m: validateMIDI,
+  T: validateTrue,
+  F: validateFalse,
+};
 
 /**
  * Check if a value matches the expected OSC type
@@ -218,181 +481,22 @@ function validateValueFormat(valueArray, typeInfo) {
 function checkValueType(value, expectedOscType) {
   // Handle null/undefined for nil/impulse types
   if (value === null || value === undefined) {
-    if (expectedOscType === "N" || expectedOscType === "I") {
-      return { valid: true };
-    }
-    return {
-      valid: false,
-      error: `null/undefined not allowed for type ${expectedOscType}`,
-    };
+    return validateNullish(value, expectedOscType);
   }
 
-  switch (expectedOscType) {
-    case "i": // int32 - exact integer type required
-      if (typeof value !== "number" || !Number.isInteger(value)) {
-        return {
-          valid: false,
-          error: `Expected integer (int32), got ${typeof value}${
-            typeof value === "number" ? " (not an integer)" : ""
-          }`,
-        };
-      }
-      // Check int32 range
-      if (value < -2147483648 || value > 2147483647) {
-        return {
-          valid: false,
-          error: `Integer value ${value} out of int32 range (-2147483648 to 2147483647)`,
-        };
-      }
-      break;
-
-    case "f": // float32 - exact float type required
-      if (typeof value !== "number") {
-        return {
-          valid: false,
-          error: `Expected number (float32), got ${typeof value}`,
-        };
-      }
-      break;
-
-    case "d": // double - exact double type required
-      if (typeof value !== "number") {
-        return {
-          valid: false,
-          error: `Expected number (double), got ${typeof value}`,
-        };
-      }
-      break;
-
-    case "s": // string
-    case "S": // symbol
-      if (typeof value !== "string") {
-        return {
-          valid: false,
-          error: `Expected string, got ${typeof value}`,
-        };
-      }
-      break;
-
-    case "b": // blob - exact array or Buffer required
-      if (!Array.isArray(value) && !Buffer.isBuffer(value)) {
-        return {
-          valid: false,
-          error: `Expected array or Buffer for blob, got ${typeof value}`,
-        };
-      }
-      // Validate blob content is numeric bytes
-      if (Array.isArray(value)) {
-        for (let j = 0; j < value.length; j++) {
-          if (
-            typeof value[j] !== "number" ||
-            !Number.isInteger(value[j]) ||
-            value[j] < 0 ||
-            value[j] > 255
-          ) {
-            return {
-              valid: false,
-              error: `Blob array must contain integers 0-255, got invalid value at index ${j}`,
-            };
-          }
-        }
-      }
-      break;
-
-    case "h": // int64
-      if (typeof value !== "number" && typeof value !== "bigint") {
-        return {
-          valid: false,
-          error: `Expected number or bigint, got ${typeof value}`,
-        };
-      }
-      break;
-
-    case "c": // char
-      if (typeof value !== "string" || value.length !== 1) {
-        return {
-          valid: false,
-          error: `Expected single character string, got ${typeof value}`,
-        };
-      }
-      break;
-
-    case "r": // RGBA
-      if (
-        typeof value !== "string" &&
-        !Array.isArray(value) &&
-        typeof value !== "object"
-      ) {
-        return {
-          valid: false,
-          error: `Expected string, array, or object for RGBA, got ${typeof value}`,
-        };
-      }
-      break;
-
-    case "m": // MIDI - exact 4-byte array required
-      if (!Array.isArray(value)) {
-        return {
-          valid: false,
-          error: `Expected array for MIDI, got ${typeof value}`,
-        };
-      }
-      if (value.length !== 4) {
-        return {
-          valid: false,
-          error: `Expected exactly 4 bytes for MIDI, got ${value.length}`,
-        };
-      }
-      // Validate each byte is 0-255
-      for (let j = 0; j < 4; j++) {
-        if (
-          typeof value[j] !== "number" ||
-          !Number.isInteger(value[j]) ||
-          value[j] < 0 ||
-          value[j] > 255
-        ) {
-          return {
-            valid: false,
-            error: `MIDI byte at index ${j} must be integer 0-255, got ${value[j]}`,
-          };
-        }
-      }
-      break;
-
-    case "T": // true - exact boolean true required
-      if (value !== true) {
-        return {
-          valid: false,
-          error: `Expected exact boolean true, got ${typeof value} (${value})`,
-        };
-      }
-      break;
-
-    case "F": // false - exact boolean false required
-      if (value !== false) {
-        return {
-          valid: false,
-          error: `Expected exact boolean false, got ${typeof value} (${value})`,
-        };
-      }
-      break;
-
-    case "N": // nil
-    case "I": // impulse
-      if (value !== null && value !== undefined) {
-        return {
-          valid: false,
-          error: `Expected null/undefined for ${expectedOscType}, got ${typeof value}`,
-        };
-      }
-      break;
-
-    default:
-      // Unknown type, allow it (might be custom)
-      break;
+  // Handle nil/impulse types for non-null values
+  if (expectedOscType === "N" || expectedOscType === "I") {
+    return validateNil(value, expectedOscType);
   }
 
-  return { valid: true };
+  // Get validator for type
+  const validator = TYPE_VALIDATORS[expectedOscType];
+  if (!validator) {
+    // Unknown type, allow it (might be custom)
+    return { valid: true };
+  }
+
+  return validator(value);
 }
 
 /**
@@ -437,69 +541,115 @@ function updateParameterValue(path, value) {
 }
 
 /**
+ * Check if range item has MIN/MAX values
+ */
+function isMinMaxRange(item) {
+  return (
+    item && item !== null && item.MIN !== undefined && item.MAX !== undefined
+  );
+}
+
+/**
+ * Check if range item has VALS array
+ */
+function isValsRange(item) {
+  return item && item.VALS && Array.isArray(item.VALS);
+}
+
+/**
+ * Process array range
+ */
+function processArrayRange(rangeArray) {
+  return rangeArray.map((rangeItem) => {
+    if (isMinMaxRange(rangeItem)) {
+      return { MIN: rangeItem.MIN, MAX: rangeItem.MAX };
+    }
+    if (isValsRange(rangeItem)) {
+      return { VALS: rangeItem.VALS };
+    }
+    return rangeItem;
+  });
+}
+
+/**
+ * Process object range
+ */
+function processObjectRange(rangeObj) {
+  const processed = {};
+  if (rangeObj.MIN !== undefined) processed.MIN = rangeObj.MIN;
+  if (rangeObj.MAX !== undefined) processed.MAX = rangeObj.MAX;
+  if (Array.isArray(rangeObj.VALS)) processed.VALS = rangeObj.VALS;
+  return processed;
+}
+
+/**
+ * Process range information
+ */
+function processRange(range) {
+  if (!range || range === null) {
+    return null;
+  }
+
+  if (Array.isArray(range)) {
+    return processArrayRange(range);
+  }
+
+  if (typeof range === "object") {
+    return processObjectRange(range);
+  }
+
+  return null;
+}
+
+/**
+ * Parse path into parts
+ */
+function parsePath(path) {
+  return path.replace(/^\//, "").split("/").filter(Boolean);
+}
+
+/**
+ * Build parameter object from parsed parameter
+ */
+function buildParameterObject(param) {
+  const paramObj = {
+    type: param.type,
+    value:
+      param.value !== undefined && param.value !== null ? param.value : null,
+  };
+
+  const processedRange = processRange(param.range);
+  if (processedRange) {
+    paramObj.range = processedRange;
+  }
+
+  if (param.description) paramObj.description = param.description;
+  if (param.access !== undefined) paramObj.access = param.access;
+
+  return paramObj;
+}
+
+/**
  * Output parameter list as nested objects grouped by path hierarchy
  * Uses outlet 0
  * Parameters are organized into nested objects based on their path
  * Example: /Transform/position -> { Transform: { position: {...} } }
  */
 function outputParameterList(parameters) {
-  // Build nested object structure based on paths
   const paramsTree = {};
 
   parameters.forEach((param) => {
-    // Build parameter object with all its data
-    const paramObj = {
-      type: param.type,
-      value:
-        param.value !== undefined && param.value !== null ? param.value : null,
-    };
-
-    // Add range information if available
-    if (param.range && param.range !== null) {
-      if (Array.isArray(param.range)) {
-        paramObj.range = param.range.map((rangeItem) => {
-          if (
-            rangeItem &&
-            rangeItem !== null &&
-            rangeItem.MIN !== undefined &&
-            rangeItem.MAX !== undefined
-          ) {
-            return { MIN: rangeItem.MIN, MAX: rangeItem.MAX };
-          } else if (
-            rangeItem &&
-            rangeItem.VALS &&
-            Array.isArray(rangeItem.VALS)
-          ) {
-            return { VALS: rangeItem.VALS };
-          }
-          return rangeItem;
-        });
-      } else if (param.range !== null && typeof param.range === "object") {
-        paramObj.range = {};
-        if (param.range.MIN !== undefined) paramObj.range.MIN = param.range.MIN;
-        if (param.range.MAX !== undefined) paramObj.range.MAX = param.range.MAX;
-        if (param.range.VALS && Array.isArray(param.range.VALS)) {
-          paramObj.range.VALS = param.range.VALS;
-        }
-      }
-    }
-
-    // Add other metadata if available
-    if (param.description) paramObj.description = param.description;
-    if (param.access !== undefined) paramObj.access = param.access;
-
-    // Parse path and create nested structure
-    // Remove leading slash and split by '/'
-    const pathParts = param.path.replace(/^\//, "").split("/").filter(Boolean);
+    const paramObj = buildParameterObject(param);
+    const pathParts = parsePath(param.path);
 
     if (pathParts.length > 0) {
       setNestedValue(paramsTree, pathParts, paramObj);
     }
   });
 
-  paramsDict = paramsTree;
-  // Output as JSON string - Max can parse this with [dict] or [json] object
-  // Format: param <json_string>
+  paramsDict = {
+    params: paramsTree,
+  };
   outletTo(0, paramsDict);
 }
 
@@ -550,95 +700,137 @@ async function connect(url) {
 }
 
 /**
- * Connect WebSocket
+ * Send LISTEN command for a parameter path
  */
-function connectWebSocket(wsUrl) {
-  // Create WebSocket client with callbacks
-  wsClient = new WebSocketClient({
-    timeout: timeout,
-    logger: (message, ...args) => {
-      maxAPI.post(message, ...args);
-    },
+function sendListenCommand(path) {
+  wsClient.send(
+    JSON.stringify({
+      COMMAND: "LISTEN",
+      DATA: path,
+    })
+  );
+}
+
+/**
+ * Set up LISTEN commands for all parameters
+ */
+function setupListenCommands() {
+  if (!namespace) return;
+
+  const parameters = parseNamespace(namespace);
+  maxAPI.post(`Setting up LISTEN for ${parameters.length} parameters`);
+
+  parameters.forEach((param) => {
+    try {
+      sendListenCommand(param.path);
+    } catch (sendError) {
+      maxAPI.post(`Error sending LISTEN for ${param.path}:`, sendError.message);
+    }
+  });
+}
+
+/**
+ * Parse WebSocket message data
+ */
+function parseWebSocketMessage(data) {
+  if (Buffer.isBuffer(data)) {
+    const parsed = parseOSCBinary(data);
+    if (parsed) {
+      return { type: "osc", ...parsed };
+    }
+    try {
+      return { type: "json", data: JSON.parse(data.toString("utf8")) };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  if (typeof data === "string") {
+    return { type: "json", data: JSON.parse(data) };
+  }
+
+  return null;
+}
+
+/**
+ * Handle JSON message from WebSocket
+ */
+function handleJSONMessage(messageData) {
+  if (messageData.PATH && messageData.VALUE !== undefined) {
+    updateParameterValue(messageData.PATH, messageData.VALUE);
+    outletTo(1, messageData.PATH, messageData.VALUE);
+  } else if (messageData.COMMAND === "LISTEN" && messageData.DATA) {
+    maxAPI.post(`Listening to ${messageData.DATA}`);
+  }
+}
+
+/**
+ * Handle WebSocket message
+ */
+function handleWebSocketMessage(message) {
+  if (message.type === "osc") {
+    updateParameterValue(message.PATH, message.VALUE);
+    outletTo(1, message.PATH, message.VALUE);
+    return;
+  }
+
+  if (message.type === "json") {
+    handleJSONMessage(message.data);
+  }
+}
+
+/**
+ * Create message handler for WebSocket
+ */
+function createMessageHandler() {
+  return (data) => {
+    try {
+      const message = parseWebSocketMessage(data);
+      if (!message) return;
+
+      handleWebSocketMessage(message);
+    } catch (error) {
+      maxAPI.post("Error processing WebSocket message:", error.message);
+    }
+  };
+}
+
+/**
+ * Create connection handlers for WebSocket
+ */
+function createConnectionHandlers() {
+  return {
     onOpen: () => {
-      // Set connection state only after WebSocket is confirmed open
       connected = true;
       outletTo(2, "connected");
       maxAPI.post("Connected successfully");
-
-      // Set up LISTEN for all parameters AFTER connection is open
-      if (namespace) {
-        const parameters = parseNamespace(namespace);
-        maxAPI.post(`Setting up LISTEN for ${parameters.length} parameters`);
-        for (const param of parameters) {
-          try {
-            wsClient.send(
-              JSON.stringify({
-                COMMAND: "LISTEN",
-                DATA: param.path,
-              })
-            );
-          } catch (sendError) {
-            maxAPI.post(
-              `Error sending LISTEN for ${param.path}:`,
-              sendError.message
-            );
-          }
-        }
-      }
+      setupListenCommands();
     },
-    onMessage: (data) => {
-      try {
-        // Try to parse as binary OSC first
-        let message;
-        if (Buffer.isBuffer(data)) {
-          // Try binary OSC
-          const parsed = parseOSCBinary(data);
-          if (parsed) {
-            // Update paramsDict with new value
-            updateParameterValue(parsed.PATH, parsed.VALUE);
-            // Send to outlet 1 (parameter changes)
-            outletTo(1, parsed.PATH, parsed.VALUE);
-            return;
-          }
-          // Try as text
-          try {
-            message = JSON.parse(data.toString("utf8"));
-          } catch (e) {
-            // Not JSON, ignore
-            return;
-          }
-        } else if (typeof data === "string") {
-          message = JSON.parse(data);
-        } else {
-          return;
-        }
-
-        // Handle JSON message
-        if (message.PATH && message.VALUE !== undefined) {
-          // Update paramsDict with new value
-          updateParameterValue(message.PATH, message.VALUE);
-          // Send to outlet 1 (parameter changes)
-          outletTo(1, message.PATH, message.VALUE);
-        } else if (message.COMMAND === "LISTEN" && message.DATA) {
-          // Server acknowledging LISTEN command
-          maxAPI.post(`Listening to ${message.DATA}`);
-        }
-      } catch (error) {
-        maxAPI.post("Error processing WebSocket message:", error.message);
-      }
-    },
+    onMessage: createMessageHandler(),
     onError: (error) => {
       connected = false;
       outletTo(2, "disconnected");
     },
     onClose: (code, reason) => {
       if (connected) {
-        // Only output disconnect if we were previously connected
         connected = false;
         outletTo(2, "disconnected");
         outletTo(3);
       }
     },
+  };
+}
+
+/**
+ * Connect WebSocket
+ */
+function connectWebSocket(wsUrl) {
+  const handlers = createConnectionHandlers();
+
+  wsClient = new WebSocketClient({
+    timeout: timeout,
+    logger: (message, ...args) => maxAPI.post(message, ...args),
+    ...handlers,
   });
 
   return wsClient.connect(wsUrl);
@@ -675,86 +867,110 @@ function disconnect() {
   maxAPI.post("Disconnected");
 }
 
-function setParameter(path, ...args) {
-  // Check connection state
+/**
+ * Convert arguments to value array
+ */
+function convertToValueArray(args) {
+  if (args === null || args === undefined) {
+    return [null];
+  }
+  if (Array.isArray(args)) {
+    return args;
+  }
+  return [args];
+}
+
+/**
+ * Normalize path to ensure it starts with /
+ */
+function normalizePath(path) {
+  const normalized = String(path);
+  return normalized.startsWith("/") ? normalized : "/" + normalized;
+}
+
+/**
+ * Get type info for a path
+ */
+function getTypeInfo(path, normalizedPath) {
+  return pathTypeInfo.get(normalizedPath) || pathTypeInfo.get(path);
+}
+
+/**
+ * Validate OSC packet
+ */
+function validateOSCPacket(packet) {
+  if (!Buffer.isBuffer(packet)) {
+    throw new Error("OSC encoding failed: result is not a Buffer");
+  }
+  if (packet.length === 0) {
+    throw new Error("OSC encoding failed: empty packet");
+  }
+}
+
+/**
+ * Validate connection state
+ */
+function validateConnection() {
   if (!baseUrl) {
-    const error = new Error("Not connected");
-    // maxAPI.post(`Cannot set value for ${path}: Not connected`);
-    throw error;
+    throw new Error("Not connected");
   }
-
-  // Convert canonical domain value to raw OSCQuery format
-  // For OSCQuery, values are already in canonical format, so pass-through
-  const rawValue = args; // fromDomain equivalent (pass-through for OSCQuery)
-  // Convert args to value array
-  let valueArray;
-  if (rawValue === null || rawValue === undefined) {
-    valueArray = [null];
-  } else if (Array.isArray(rawValue)) {
-    valueArray = rawValue;
-  } else {
-    valueArray = [rawValue];
-  }
-
-  // Only use WebSocket for setting values - HTTP PUT/POST is not part of OSCQueryProposal spec
   if (!wsClient || !wsClient.isConnected()) {
-    const warning = `Cannot set value for ${path}: WebSocket is not connected. Please ensure the WebSocket connection is established before setting values.`;
-    maxAPI.post(warning);
-    throw new Error(warning);
+    throw new Error(
+      "WebSocket is not connected. Please ensure the WebSocket connection is established before setting values."
+    );
   }
+}
+
+/**
+ * Validate and encode parameter value
+ */
+function validateAndEncode(normalizedPath, valueArray, oscTypeInfo) {
+  if (!oscTypeInfo) {
+    throw new Error(
+      `Type information not available for ${normalizedPath}. Cannot send without exact type validation.`
+    );
+  }
+
+  const validation = validateValueFormat(valueArray, oscTypeInfo);
+  if (!validation.valid) {
+    throw new Error(
+      `Type validation failed for ${normalizedPath}: ${validation.error}`
+    );
+  }
+
+  const oscPacket = encodeOSCBinary(normalizedPath, valueArray, oscTypeInfo);
+  validateOSCPacket(oscPacket);
+
+  return oscPacket;
+}
+
+/**
+ * Set parameter value via WebSocket
+ */
+function setParameter(path, ...args) {
+  validateConnection();
+
+  const valueArray = convertToValueArray(args);
+  const normalizedPath = normalizePath(path);
+  const oscTypeInfo = getTypeInfo(path, normalizedPath);
 
   try {
-    // Validate and normalize path
-    let normalizedPath = String(path);
-    if (!normalizedPath.startsWith("/")) {
-      normalizedPath = "/" + normalizedPath;
-    }
-
-    // Get type info from parameter or stored type info
-    const oscTypeInfo =
-      pathTypeInfo.get(normalizedPath) || pathTypeInfo.get(path);
-
-    // Validate value format against typeInfo - exact type required
-    if (!oscTypeInfo) {
-      const error = `Type information not available for ${normalizedPath}. Cannot send without exact type validation.`;
-      maxAPI.post(error);
-      throw new Error(error);
-    }
-
-    const validation = validateValueFormat(valueArray, oscTypeInfo);
-    if (!validation.valid) {
-      const error = `Type validation failed for ${normalizedPath}: ${validation.error}`;
-      maxAPI.post(error);
-      throw new Error(error);
-    }
-
-    // Encode as OSC binary
-    const oscPacket = encodeOSCBinary(normalizedPath, valueArray, oscTypeInfo);
-
-    // Ensure we have a valid Buffer
-    if (!Buffer.isBuffer(oscPacket)) {
-      throw new Error("OSC encoding failed: result is not a Buffer");
-    }
-
-    // Validate packet size
-    if (oscPacket.length === 0) {
-      throw new Error("OSC encoding failed: empty packet");
-    }
-
-    // Send via WebSocket as binary
-    // In Node.js 'ws' library, sending a Buffer automatically sends as binary
+    const oscPacket = validateAndEncode(
+      normalizedPath,
+      valueArray,
+      oscTypeInfo
+    );
     wsClient.send(oscPacket);
-    // make path and valuearray into single object
+
     const sentObject = { path: path, value: valueArray };
     outletTo(4, sentObject);
-  } catch (wsError) {
-    const error =
-      wsError instanceof Error ? wsError : new Error(String(wsError));
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     maxAPI.post(
       `Failed to send value via WebSocket for ${path}:`,
-      error.message
+      errorMessage
     );
-    throw new Error(`Failed to send value via WebSocket: ${error.message}`);
+    throw new Error(`Failed to send value via WebSocket: ${errorMessage}`);
   }
 }
 
