@@ -13,6 +13,36 @@
         "boxes": [
             {
                 "box": {
+                    "id": "obj-22",
+                    "maxclass": "dict.view",
+                    "numinlets": 1,
+                    "numoutlets": 0,
+                    "patching_rect": [ 939.0, 748.0, 100.0, 100.0 ]
+                }
+            },
+            {
+                "box": {
+                    "id": "obj-19",
+                    "maxclass": "newobj",
+                    "numinlets": 1,
+                    "numoutlets": 0,
+                    "patching_rect": [ 801.0, 759.0, 85.0, 22.0 ],
+                    "text": "print UNFUCK"
+                }
+            },
+            {
+                "box": {
+                    "id": "obj-17",
+                    "maxclass": "newobj",
+                    "numinlets": 1,
+                    "numoutlets": 3,
+                    "outlettype": [ "", "", "" ],
+                    "patching_rect": [ 801.0, 707.0, 77.0, 22.0 ],
+                    "text": "unpack s d d"
+                }
+            },
+            {
+                "box": {
                     "id": "obj-5",
                     "maxclass": "message",
                     "numinlets": 2,
@@ -268,7 +298,7 @@
                     "maxclass": "dict.view",
                     "numinlets": 1,
                     "numoutlets": 0,
-                    "patching_rect": [ 258.0, 659.0, 416.0, 622.0 ]
+                    "patching_rect": [ 258.0, 668.0, 416.0, 622.0 ]
                 }
             },
             {
@@ -457,7 +487,7 @@
                         "npm_bin_path": "",
                         "watch": 1
                     },
-                    "text": "node.script oscquery.client @autostart 1 @watch 1 @args url=http://127.0.0.1:5679 update_mode=true autoconnect=true",
+                    "text": "node.script oscquery.client @args url=http://127.0.0.1:5679 update_mode=true autoconnect=true @autostart 1 @watch 1",
                     "textfile": {
                         "filename": "oscquery.client.js",
                         "flags": 0,
@@ -514,6 +544,18 @@
                 "patchline": {
                     "destination": [ "obj-10", 0 ],
                     "source": [ "obj-16", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "destination": [ "obj-19", 0 ],
+                    "source": [ "obj-17", 2 ]
+                }
+            },
+            {
+                "patchline": {
+                    "destination": [ "obj-19", 0 ],
+                    "source": [ "obj-17", 1 ]
                 }
             },
             {
@@ -626,6 +668,13 @@
             },
             {
                 "patchline": {
+                    "destination": [ "obj-17", 0 ],
+                    "order": 0,
+                    "source": [ "obj-40", 1 ]
+                }
+            },
+            {
+                "patchline": {
                     "destination": [ "obj-42", 0 ],
                     "source": [ "obj-40", 2 ]
                 }
@@ -633,6 +682,7 @@
             {
                 "patchline": {
                     "destination": [ "obj-43", 0 ],
+                    "order": 1,
                     "source": [ "obj-40", 1 ]
                 }
             },

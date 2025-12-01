@@ -11,6 +11,8 @@
  *   [change( [outlet 1]  // Parameter changes
  *   [state( [outlet 2]  // Connection state
  *   [disconnect( [outlet 3]  // Disconnect bang
+ *   [sent( [outlet 4]  // Parameter sent
+ *   [others( [outlet 5]  // Other messages
  *
  * Note: node.script has only 1 output edge. Data is sent with routing tags:
  *   - "param" for parameter list (outlet 0)
@@ -167,9 +169,16 @@ const connectionManager = new ConnectionManager(state, parameterManager, {
   },
   onParameterChange: (path, value) => {
     // Output parameter change
-    outletTo(1, path, value);
+    // If value is an array, spread it so Max receives individual elements as a list
+    // Otherwise send as single value
+    if (Array.isArray(value)) {
+      outletTo(1, path, ...value);
+    } else {
+      outletTo(1, path, value);
+    }
     // If update mode is on, also output the full paramsDict
     if (state.updateMode && state.paramsDict) {
+      maxAPI.post("Update mode is on, outputting current state");
       outletTo(0, state.paramsDict);
     }
   },

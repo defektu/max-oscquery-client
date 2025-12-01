@@ -1,0 +1,219 @@
+{
+	"FULL_PATH": "/",
+	"DESCRIPTION": "TD OSC Query Server 2",
+	"CONTENTS": {
+		"my_effect1": {
+			"CONTENTS": {
+				"Controls": {
+					"CONTENTS": {
+						"Myfloat": {
+							"TYPE": "f",
+							"DESCRIPTION": "Myfloat",
+							"FULL_PATH": "/my_effect1/Controls/Myfloat",
+							"VALUE": [
+								483.0
+							],
+							"RANGE": [
+								{
+									"MAX": 2.0,
+									"MIN": 0.0
+								}
+							],
+							"ACCESS": 3
+						},
+						"Myint": {
+							"TYPE": "i",
+							"DESCRIPTION": "Myint",
+							"FULL_PATH": "/my_effect1/Controls/Myint",
+							"VALUE": [
+								8
+							],
+							"RANGE": [
+								{
+									"MAX": 100.0,
+									"MIN": 0.0
+								}
+							],
+							"ACCESS": 1
+						},
+						"Myxy": {
+							"TYPE": "ff",
+							"DESCRIPTION": "Myxy",
+							"FULL_PATH": "/my_effect1/Controls/Myxy",
+							"VALUE": [
+								207.0,
+								207.0
+							],
+							"RANGE": [
+								{
+									"MAX": 1.0,
+									"MIN": -1.0
+								},
+								{
+									"MAX": 10.0,
+									"MIN": -10.0
+								}
+							],
+							"ACCESS": 3
+						},
+						"My3d": {
+							"TYPE": "fff",
+							"DESCRIPTION": "My3d",
+							"FULL_PATH": "/my_effect1/Controls/My3d",
+							"VALUE": [
+								0.0,
+								-5.0,
+								0.0
+							],
+							"RANGE": [
+								{
+									"MAX": 1.0,
+									"MIN": 0.0
+								},
+								{
+									"MAX": 100.0,
+									"MIN": 0.0
+								},
+								{
+									"MAX": 1.0,
+									"MIN": 0.0
+								}
+							],
+							"ACCESS": 3
+						},
+						"My4d": {
+							"TYPE": "ffff",
+							"DESCRIPTION": "My4d",
+							"FULL_PATH": "/my_effect1/Controls/My4d",
+							"VALUE": [
+								6.918,
+								1.86315,
+								1.86315,
+								0.05
+							],
+							"RANGE": [
+								{
+									"MAX": 1.0,
+									"MIN": 0.0
+								},
+								{
+									"MAX": 1.0,
+									"MIN": 0.0
+								},
+								{
+									"MAX": 100.0,
+									"MIN": 0.0
+								},
+								{
+									"MAX": 1.0,
+									"MIN": 0.0
+								}
+							],
+							"ACCESS": 3
+						},
+						"Mytoggle": {
+							"TYPE": "F",
+							"DESCRIPTION": "Mytoggle",
+							"FULL_PATH": "/my_effect1/Controls/Mytoggle",
+							"VALUE": [
+								false
+							],
+							"RANGE": [
+								{
+									"MAX": 1,
+									"MIN": 0
+								}
+							],
+							"ACCESS": 3
+						},
+						"Mystring": {
+							"TYPE": "s",
+							"DESCRIPTION": "Mystring",
+							"FULL_PATH": "/my_effect1/Controls/Mystring",
+							"VALUE": [
+								"[aszxczxczxdsa, asdsad]"
+							],
+							"ACCESS": 3
+						},
+						"Mymenu": {
+							"TYPE": "s",
+							"DESCRIPTION": "Mymenu",
+							"FULL_PATH": "/my_effect1/Controls/Mymenu",
+							"VALUE": [
+								"Label 3"
+							],
+							"RANGE": [
+								{
+									"VALS": [
+										"Label 1",
+										"Label 2",
+										"Label 3"
+									]
+								}
+							],
+							"ACCESS": 3
+						},
+						"Mycolor": {
+							"TYPE": "r",
+							"DESCRIPTION": "Mycolor",
+							"FULL_PATH": "/my_effect1/Controls/Mycolor",
+							"VALUE": [
+								"#95db00ff"
+							],
+							"ACCESS": 3
+						},
+						"Mytop": {
+							"TYPE": "s",
+							"DESCRIPTION": "Mytop",
+							"FULL_PATH": "/my_effect1/Controls/Mytop",
+							"VALUE": [
+								"moviefilein1"
+							],
+							"ACCESS": 3
+						},
+						"Mypulse": {
+							"TYPE": "N",
+							"DESCRIPTION": "Mypulse",
+							"FULL_PATH": "/my_effect1/Controls/Mypulse",
+							"ACCESS": 1
+						},
+						"Mymomentary": {
+							"TYPE": "N",
+							"DESCRIPTION": "Mymomentary",
+							"FULL_PATH": "/my_effect1/Controls/Mymomentary",
+							"ACCESS": 3
+						}
+					}
+				},
+				"Setup": {
+					"CONTENTS": {
+						"Something": {
+							"TYPE": "s",
+							"DESCRIPTION": "Something",
+							"FULL_PATH": "/my_effect1/Setup/Something",
+							"VALUE": [
+								"xasdsad"
+							],
+							"ACCESS": 3
+						},
+						"Test": {
+							"TYPE": "f",
+							"DESCRIPTION": "Test",
+							"FULL_PATH": "/my_effect1/Setup/Test",
+							"VALUE": [
+								1.88801
+							],
+							"RANGE": [
+								{
+									"MAX": 1.0,
+									"MIN": 0.0
+								}
+							],
+							"ACCESS": 3
+						}
+					}
+				}
+			}
+		}
+	}
+}

@@ -4,7 +4,7 @@
   "description": "Max/MSP OSCQuery Client using node.script",
   "main": "oscquery.client.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node test/test-example-types.js"
   },
   "keywords": [
     "max",
