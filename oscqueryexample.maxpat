@@ -9,7 +9,7 @@
             "modernui": 1
         },
         "classnamespace": "box",
-        "rect": [ -1886.0, 77.0, 1391.0, 969.0 ],
+        "rect": [ -1886.0, 77.0, 1421.0, 969.0 ],
         "boxes": [
             {
                 "box": {
@@ -319,8 +319,8 @@
                     "numinlets": 2,
                     "numoutlets": 1,
                     "outlettype": [ "float" ],
-                    "patching_rect": [ 1165.0, 240.0, 61.0, 23.0 ],
-                    "text": "clocker 1"
+                    "patching_rect": [ 1165.0, 240.0, 75.0, 23.0 ],
+                    "text": "clocker 100"
                 }
             },
             {
