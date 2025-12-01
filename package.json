@@ -4,7 +4,7 @@
   "description": "Max/MSP OSCQuery Client using node.script",
   "main": "oscquery.client.js",
   "scripts": {
-    "test": "node test/test-example-types.js"
+    "test": "node lib/test/test-example-types.js"
   },
   "keywords": [
     "max",

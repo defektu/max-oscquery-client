@@ -27,8 +27,8 @@
  */
 
 const maxAPI = require("max-api");
-const ParameterManager = require("./core/ParameterManager");
-const ConnectionManager = require("./core/ConnectionManager");
+const ParameterManager = require("./lib/core/ParameterManager");
+const ConnectionManager = require("./lib/core/ConnectionManager");
 
 /**
  * Send data to Max outlet with routing tag
@@ -178,7 +178,6 @@ const connectionManager = new ConnectionManager(state, parameterManager, {
     }
     // If update mode is on, also output the full paramsDict
     if (state.updateMode && state.paramsDict) {
-      maxAPI.post("Update mode is on, outputting current state");
       outletTo(0, state.paramsDict);
     }
   },
