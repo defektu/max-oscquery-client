@@ -134,7 +134,7 @@ const state = {
   timeout: 5000,
   timeoutTimer: null,
   paramsDict: null,
-  updateMode: false,
+  updateMode: true,
 };
 
 // Initialize managers

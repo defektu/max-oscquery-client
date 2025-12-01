@@ -13,8 +13,13 @@
     "osc",
     "node.script"
   ],
-  "author": "",
-  "license": "ISC",
+  "author": "Çağatay Güçlü",
+  "email": "info@defektu.com",
+  "homepage": "https://defektu.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/defektu/max-oscquery-client.git"
+  },
   "dependencies": {
     "ws": "^8.18.3"
   },

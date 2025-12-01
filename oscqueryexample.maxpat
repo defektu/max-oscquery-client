@@ -9,8 +9,63 @@
             "modernui": 1
         },
         "classnamespace": "box",
-        "rect": [ -1886.0, 77.0, 1459.0, 969.0 ],
+        "rect": [ -1886.0, 77.0, 1391.0, 969.0 ],
         "boxes": [
+            {
+                "box": {
+                    "id": "obj-96",
+                    "maxclass": "newobj",
+                    "numinlets": 1,
+                    "numoutlets": 1,
+                    "outlettype": [ "bang" ],
+                    "patching_rect": [ 138.0, 179.0, 58.0, 22.0 ],
+                    "text": "loadbang"
+                }
+            },
+            {
+                "box": {
+                    "id": "obj-95",
+                    "maxclass": "message",
+                    "numinlets": 2,
+                    "numoutlets": 1,
+                    "outlettype": [ "" ],
+                    "patching_rect": [ 138.0, 212.0, 98.0, 22.0 ],
+                    "text": "script npm install"
+                }
+            },
+            {
+                "box": {
+                    "id": "obj-91",
+                    "maxclass": "newobj",
+                    "numinlets": 2,
+                    "numoutlets": 1,
+                    "outlettype": [ "float" ],
+                    "patching_rect": [ 1348.0, 119.0, 39.0, 22.0 ],
+                    "text": "/ 100."
+                }
+            },
+            {
+                "box": {
+                    "id": "obj-89",
+                    "maxclass": "number",
+                    "numinlets": 1,
+                    "numoutlets": 2,
+                    "outlettype": [ "", "bang" ],
+                    "parameter_enable": 0,
+                    "patching_rect": [ 1349.0, 83.0, 50.0, 22.0 ]
+                }
+            },
+            {
+                "box": {
+                    "id": "obj-88",
+                    "maxclass": "message",
+                    "numinlets": 2,
+                    "numoutlets": 1,
+                    "outlettype": [ "" ],
+                    "patching_rect": [ 1349.0, 163.0, 218.0, 22.0 ],
+                    "text": "Red_Cube/Transform/position $1 $1 $1"
+                }
+            },
             {
                 "box": {
                     "id": "obj-22",
@@ -478,16 +533,16 @@
                     "numinlets": 1,
                     "numoutlets": 2,
                     "outlettype": [ "", "" ],
-                    "patching_rect": [ 338.0, 298.0, 652.0, 22.0 ],
+                    "patching_rect": [ 338.0, 298.0, 650.0, 22.0 ],
                     "saved_object_attributes": {
-                        "args": [ "url=http://127.0.0.1:5679", "update_mode=true", "autoconnect=true" ],
+                        "args": [ "url=http://localhost:5679", "update_mode=true", "autoconnect=true" ],
                         "autostart": 1,
                         "defer": 0,
                         "node_bin_path": "",
                         "npm_bin_path": "",
                         "watch": 1
                     },
-                    "text": "node.script oscquery.client @args url=http://127.0.0.1:5679 update_mode=true autoconnect=true @autostart 1 @watch 1",
+                    "text": "node.script oscquery.client @args url=http://localhost:5679 update_mode=true autoconnect=true @autostart 1 @watch 1",
                     "textfile": {
                         "filename": "oscquery.client.js",
                         "flags": 0,
@@ -736,8 +791,38 @@
             },
             {
                 "patchline": {
+                    "destination": [ "obj-21", 0 ],
+                    "source": [ "obj-88", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "destination": [ "obj-91", 0 ],
+                    "source": [ "obj-89", 0 ]
+                }
+            },
+            {
+                "patchline": {
                     "destination": [ "obj-10", 0 ],
                     "source": [ "obj-9", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "destination": [ "obj-88", 0 ],
+                    "source": [ "obj-91", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "destination": [ "obj-10", 0 ],
+                    "source": [ "obj-95", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "destination": [ "obj-95", 0 ],
+                    "source": [ "obj-96", 0 ]
                 }
             }
         ],
