@@ -29,6 +29,7 @@
 const maxAPI = require("max-api");
 const ParameterManager = require("./lib/core/ParameterManager");
 const ConnectionManager = require("./lib/core/ConnectionManager");
+const ReconnectionManager = require("./lib/core/ReconnectionManager");
 
 /**
  * Send data to Max outlet with routing tag
@@ -89,48 +90,17 @@ function parseArgs() {
   };
 }
 
-/**
- * Update a parameter value in paramsDict
- */
-function updateParameterValue(paramsDict, path, value) {
-  if (!paramsDict || !paramsDict.params) {
-    return false;
-  }
-
-  // Parse path and update nested structure
-  const pathParts = path.replace(/^\//, "").split("/").filter(Boolean);
-
-  if (pathParts.length === 0) {
-    return false;
-  }
-
-  // Navigate to the parameter and update its value
-  let current = paramsDict.params;
-  for (let i = 0; i < pathParts.length - 1; i++) {
-    const part = pathParts[i];
-    if (!current[part]) {
-      return false;
-    }
-    current = current[part];
-  }
-
-  const lastPart = pathParts[pathParts.length - 1];
-  if (current[lastPart]) {
-    // Update the value
-    current[lastPart].value = value;
-    return true;
-  }
-
-  return false;
-}
-
-// Initialize state object (replaces StateManager)
+// Initialize state object
 const state = {
   baseUrl: null,
   hostInfo: null,
   namespace: null,
   connected: false,
   autoconnect: false,
+  autoreconnect: true,
+  reconnectInterval: 500,
+  isReconnecting: false,
+  manualDisconnect: false,
   timeout: 5000,
   timeoutTimer: null,
   paramsDict: null,
@@ -156,21 +126,32 @@ maxAPI.post(
   autoconnect
 );
 
-// Initialize connection manager with callbacks
+// Initialize connection manager (reconnectionManager will be set up after)
+let reconnectionManager = null;
+
 const connectionManager = new ConnectionManager(state, parameterManager, {
   onConnected: () => {
+    state.manualDisconnect = false;
+    state.isReconnecting = false;
+    state.connected = true;
+    if (reconnectionManager) {
+      reconnectionManager.clear();
+    }
     outletTo(2, "connected");
   },
   onDisconnected: (isDisconnectBang) => {
+    state.connected = false;
     outletTo(2, "disconnected");
     if (isDisconnectBang) {
       outletTo(3);
     }
+    // Schedule reconnection if enabled
+    if (reconnectionManager) {
+      reconnectionManager.schedule();
+    }
   },
   onParameterChange: (path, value) => {
     // Output parameter change
-    // If value is an array, spread it so Max receives individual elements as a list
-    // Otherwise send as single value
     if (Array.isArray(value)) {
       outletTo(1, path, ...value);
     } else {
@@ -188,8 +169,22 @@ const connectionManager = new ConnectionManager(state, parameterManager, {
     outletTo(4, sentObject);
   },
   onError: (error) => {
-    // Errors are already logged in ConnectionManager
+    maxAPI.post(
+      "Connection error:",
+      error && error.message ? error.message : String(error)
+    );
+    console.error(
+      "Connection error:",
+      error && error.message ? error.message : String(error)
+    );
   },
+  onLog: (message, ...args) => {
+    maxAPI.post(message, ...args);
+  },
+});
+
+// Initialize reconnection manager
+reconnectionManager = new ReconnectionManager(state, connectionManager, {
   onLog: (message, ...args) => {
     maxAPI.post(message, ...args);
   },
@@ -197,13 +192,20 @@ const connectionManager = new ConnectionManager(state, parameterManager, {
 
 // Initialize Max API handlers
 maxAPI.addHandler("connect", (url) => {
-  connectionManager.connect(url).catch((error) => {
+  state.manualDisconnect = false;
+  state.baseUrl = url || state.baseUrl;
+  reconnectionManager.clear();
+  connectionManager.connect(state.baseUrl).catch((error) => {
     maxAPI.post("Connect failed:", error.message);
+    reconnectionManager.schedule();
   });
 });
 
 maxAPI.addHandler("disconnect", () => {
-  connectionManager.disconnect();
+  state.manualDisconnect = true;
+  state.connected = false;
+  reconnectionManager.stop();
+  connectionManager.disconnect(false);
 });
 
 maxAPI.addHandler("autoconnect", (value) => {
@@ -211,8 +213,23 @@ maxAPI.addHandler("autoconnect", (value) => {
   maxAPI.post("autoconnect: ", state.autoconnect);
 });
 
+maxAPI.addHandler("autoreconnect", (value) => {
+  state.autoreconnect = value ? true : false;
+  maxAPI.post("autoreconnect: ", state.autoreconnect);
+  if (!state.autoreconnect) {
+    reconnectionManager.stop();
+  } else if (!state.connected && !state.manualDisconnect && state.baseUrl) {
+    reconnectionManager.schedule();
+  }
+});
+
+maxAPI.addHandler("reconnect_interval", (ms) => {
+  reconnectionManager.setInterval(ms);
+  maxAPI.post("reconnect_interval: ", state.reconnectInterval, "ms");
+});
+
 maxAPI.addHandler("timeout", (ms) => {
-  state.timeout = parseInt(ms) || 5000;
+  state.timeout = parseInt(ms, 10) || 5000;
 });
 
 maxAPI.addHandler("refresh_params", () => {
@@ -238,7 +255,7 @@ maxAPI.addHandler("update_mode", (value) => {
 
 maxAPI.addHandler("ping", () => {
   maxAPI.post("Received ping, sending pong");
-  outletTo(5, "pong"); // Sends: param pong
+  outletTo(5, "pong"); // Sends: others pong
 });
 
 maxAPI.addHandler("send", (path, ...args) => {
@@ -253,11 +270,15 @@ maxAPI.addHandler("send", (path, ...args) => {
     // Error already logged in ConnectionManager
   }
 });
+
 // Initialize
 maxAPI.post("OSCQuery Client initialized");
 if (state.autoconnect && state.baseUrl) {
   connectionManager.connect(state.baseUrl).catch((error) => {
     maxAPI.post("AutoConnect failed:", error.message);
+    if (state.autoreconnect) {
+      reconnectionManager.schedule();
+    }
   });
 }
 outletTo(2, "disconnected"); // Initial connection state: disconnected
