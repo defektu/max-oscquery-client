@@ -5,9 +5,10 @@
 //  Usage in Max:
 //    [js presentation-scanner.js]
 //    |
-//    [route objectlist detail osc varnames json value found]
+//    [route objectlist change detail osc varnames json value found]
 //    |
 //    [objectlist( [outlet 0]  // Object list (dictionary messages)
+//    [change( [outlet 1]      // Parameter change notifications
 //    [detail( [outlet 1]      // Detailed info for each object
 //    [osc( [outlet 1]         // OSC path generation
 //    [varnames( [outlet 0]    // Varname list
@@ -40,6 +41,7 @@ var patcher = this.patcher;
  *     - "varnames" - Varname count
  *     - "osc_count" - OSC path count
  *   Outlet 1:
+ *     - "change" - Parameter change notifications (from ParameterListener)
  *     - "detail" - Detailed info for each object (dict object)
  *     - "osc" - OSC path generation (dict object)
  *     - "json" - JSON export (string)
@@ -88,15 +90,16 @@ function getFloatRange(box, defaultMin, defaultMax) {
  */
 function getObjectInfo(box, index) {
   const varname = box.getattr("varname") || "unnamed_" + index;
+  // Align structure with ParameterManager parse output: path, type, value, range, description, access
   const info = {
     index: index,
     varname: varname,
     maxclass: box.maxclass,
+    path: "/" + varname,
     type: "unknown",
-    min: 0,
-    max: 1,
-    steps: 0,
-    unit: "",
+    value: null,
+    range: null,
+    description: box.maxclass,
     presentation_rect: box.getattr("presentation_rect"),
   };
 
@@ -104,6 +107,7 @@ function getObjectInfo(box, index) {
   let currentValue = null;
   try {
     currentValue = box.getvalueof();
+    info.value = currentValue;
     post(
       "Object '" +
         varname +
@@ -136,6 +140,7 @@ function getObjectInfo(box, index) {
       const range = getFloatRange(box, 0, 127);
       info.min = range.min;
       info.max = range.max;
+      info.range = { MIN: info.min, MAX: info.max };
       post("  Possible values: range [" + info.min + " to " + info.max + "]\n");
       break;
 
@@ -145,6 +150,7 @@ function getObjectInfo(box, index) {
       info.min = 0;
       info.max = 1;
       info.steps = 2;
+      info.range = { MIN: 0, MAX: 1 };
       post("  Possible values: [0, 1] (boolean)\n");
       break;
 
@@ -163,6 +169,7 @@ function getObjectInfo(box, index) {
         if (items) {
           info.enum_values = items;
           info.steps = items.length;
+          info.range = { VALS: items };
           post("  Possible values: " + JSON.stringify(items) + "\n");
         } else {
           post("  Possible values: (no items found)\n");
@@ -178,6 +185,7 @@ function getObjectInfo(box, index) {
         const modes = box.getattr("mode");
         if (modes === 1) {
           info.type = "bool";
+          info.range = { MIN: 0, MAX: 1 };
           post("  Possible values: [0, 1] (boolean text mode)\n");
         } else {
           post("  Possible values: text string\n");
@@ -258,39 +266,73 @@ function iteratePresentationObjects(callback) {
 // Initialize state object
 const state = {
   presentationObjects: [],
+  parameterListeners: {}, // Map of varname -> ParameterListener
 };
+
+/**
+ * Parameter change callback for ParameterListener
+ * @param {ParameterListenerData} data - Parameter change data
+ */
+function parameterChanged(data) {
+  // Output parameter change (similar to oscquery.client.js onParameterChange)
+  const changeDict = {
+    path: "/" + data.name,
+    value: data.value,
+  };
+  outletTo(1, "change", changeDict);
+
+  post("Parameter changed: " + data.name + " = " + data.value + "\n");
+}
 
 /**
  * Scan all objects in presentation mode
  * @returns {Array} Array of presentation objects
  */
 function scan() {
+  // Clean up existing parameter listeners
+  for (var varname in state.parameterListeners) {
+    if (state.parameterListeners.hasOwnProperty(varname)) {
+      // ParameterListener objects don't have explicit cleanup, but we'll remove from map
+      delete state.parameterListeners[varname];
+    }
+  }
+
   state.presentationObjects = [];
+  const objectMap = {};
 
   iteratePresentationObjects((box, index) => {
     const objInfo = getObjectInfo(box, index);
     state.presentationObjects.push(objInfo);
+    objectMap[objInfo.varname] = objInfo;
 
-    // Output detailed info for each object as dict (like oscquery.client.js)
-    const detailDict = {
-      index: index,
-      varname: objInfo.varname,
-      class: objInfo.maxclass,
-      type: objInfo.type,
-    };
-    outletTo(1, "detail", detailDict);
+    // Create ParameterListener for each object with a varname
+    // See: https://docs.cycling74.com/legacy/max8/vignettes/jsparamlistener#ParameterListenerData
+    if (
+      objInfo.varname &&
+      objInfo.varname !== "" &&
+      objInfo.varname.indexOf("unnamed_") !== 0
+    ) {
+      try {
+        var listener = new ParameterListener(objInfo.varname, parameterChanged);
+        state.parameterListeners[objInfo.varname] = listener;
+        post("Created ParameterListener for: " + objInfo.varname + "\n");
+      } catch (e) {
+        post(
+          "Failed to create ParameterListener for " +
+            objInfo.varname +
+            ": " +
+            e +
+            "\n"
+        );
+      }
+    }
   });
 
   // Output dictionary object for all objects (like paramsDict in oscquery.client.js)
   const objectsDict = {
-    objects: state.presentationObjects.map((obj) => createDictObject(obj)),
+    objects: objectMap,
   };
-  post(
-    "About to output objectlist, objects count: " +
-      objectsDict.objects.length +
-      "\n"
-  );
-  post("objectlist dict: " + JSON.stringify(objectsDict) + "\n");
+
   outletTo(0, "objectlist", objectsDict);
 
   return state.presentationObjects;
@@ -313,7 +355,7 @@ function getobject(varname) {
         class: info.maxclass,
         type: info.type,
       };
-      outletTo(1, "found", jsToDict("found", foundDict));
+      outletTo(1, "found", foundDict);
       return info;
     }
   }
@@ -344,10 +386,10 @@ function generate_osc_paths() {
       varname: varname,
       class: box.maxclass,
     };
-    outletTo(1, "osc", jsToDict("osc", oscDict));
+    outletTo(1, "osc", oscDict);
   });
 
-  outletTo(0, "osc_count", jsToDict("osc_count", { count: oscPaths.length }));
+  outletTo(0, "osc_count", { count: oscPaths.length });
 }
 
 /**
@@ -365,7 +407,7 @@ function getvalue(varname) {
         varname: varname,
         value: value,
       };
-      outletTo(1, "value", jsToDict("value", valueDict));
+      outletTo(1, "value", valueDict);
       return value;
     } catch (e) {
       // Unable to read value
@@ -408,7 +450,7 @@ function list_varnames() {
     }
   });
 
-  outletTo(0, "varnames", jsToDict("varnames", { count: count }));
+  outletTo(0, "varnames", { count: count });
 }
 
 /**
