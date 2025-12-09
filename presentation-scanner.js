@@ -24,6 +24,7 @@
 //  Outlets: 2 (outlet 0: object list, outlet 1: detailed info)
 //
 
+autowatch = 1;
 inlets = 1;
 outlets = 2; // outlet 0: object list, outlet 1: detailed info
 
@@ -106,11 +107,22 @@ function makeSafeReplacer() {
  * @returns {Object} Object information
  */
 function getObjectInfo(box, index) {
+  const varname = box.getattr("varname") || "unnamed_" + index;
   // Only process Live UI objects (maxclass starting with "live.")
   if (!box.maxclass || box.maxclass.indexOf("live.") !== 0) {
-    return null;
+    // check parameter_enable
+    const parameter_enable = box.getattr("parameter_enable");
+    if (parameter_enable === 0) {
+      post(
+        "Object '" +
+          varname +
+          "' (" +
+          box.maxclass +
+          ") parameter_enable is disabled\n"
+      );
+      return null;
+    }
   }
-  const varname = box.getattr("varname") || "unnamed_" + index;
   // Align structure with ParameterManager parse output: path, type, value, range, description, access
   const info = {
     index: index,
@@ -150,10 +162,10 @@ function getObjectInfo(box, index) {
 
   // Determine type and range based on object class
   switch (box.maxclass) {
-    // case "slider":
-    // case "dial":
-    // case "number~":
-    // case "number":
+    case "slider":
+    case "dial":
+    case "number~":
+    case "number":
     case "live.dial":
     case "live.slider":
     case "live.numbox":
@@ -163,7 +175,7 @@ function getObjectInfo(box, index) {
       info.max = range.max;
       info.range = { MIN: info.min, MAX: info.max };
       break;
-    // case "toggle":
+    case "toggle":
     case "live.toggle":
       info.type = "bool";
       info.min = 0;
@@ -171,11 +183,13 @@ function getObjectInfo(box, index) {
       info.steps = 2;
       info.range = { MIN: 0, MAX: 1 };
       break;
-    // case "toggle":
+
+    case "button":
     case "live.button":
       info.type = "bang";
       break;
-    // case "umenu":
+
+    case "umenu":
     case "live.menu":
     case "live.tab":
       info.type = "enum";
@@ -209,6 +223,7 @@ function getObjectInfo(box, index) {
       break;
 
     default:
+      post("Object '" + varname + "' (" + box.maxclass + ") not supported\n");
       return null; // ignore non-live classes
   }
 

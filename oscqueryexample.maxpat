@@ -14,6 +14,52 @@
 		"gridsize" : [ 15.0, 15.0 ],
 		"boxes" : [ 			{
 				"box" : 				{
+					"id" : "obj-132",
+					"maxclass" : "newobj",
+					"numinlets" : 0,
+					"numoutlets" : 0,
+					"patching_rect" : [ 1016.425892949104309, 470.0, 55.0, 22.0 ],
+					"text" : "udpsend"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-133",
+					"maxclass" : "newobj",
+					"numinlets" : 1,
+					"numoutlets" : 1,
+					"outlettype" : [ "" ],
+					"patching_rect" : [ 1017.425892949104309, 436.0, 67.0, 22.0 ],
+					"text" : "udpreceive"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-131",
+					"maxclass" : "newobj",
+					"numinlets" : 0,
+					"numoutlets" : 0,
+					"patching_rect" : [ 619.259238958358765, 466.0, 55.0, 22.0 ],
+					"text" : "udpsend"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-128",
+					"maxclass" : "newobj",
+					"numinlets" : 1,
+					"numoutlets" : 1,
+					"outlettype" : [ "" ],
+					"patching_rect" : [ 619.259238958358765, 432.0, 67.0, 22.0 ],
+					"text" : "udpreceive"
+				}
+
+			}
+, 			{
+				"box" : 				{
 					"id" : "obj-122",
 					"maxclass" : "newobj",
 					"numinlets" : 1,
@@ -89,7 +135,7 @@
 					"maxclass" : "newobj",
 					"numinlets" : 1,
 					"numoutlets" : 0,
-					"patching_rect" : [ 1005.925892949104309, 299.259249448776245, 90.0, 22.0 ],
+					"patching_rect" : [ 1005.925892949104309, 304.0, 90.0, 22.0 ],
 					"text" : "s oscquerydata"
 				}
 
@@ -124,10 +170,91 @@
 						}
 ,
 						"classnamespace" : "box",
-						"rect" : [ 2892.0, 85.0, 594.0, 912.0 ],
+						"rect" : [ 2892.0, 85.0, 433.0, 912.0 ],
 						"gridsize" : [ 15.0, 15.0 ],
 						"visible" : 1,
 						"boxes" : [ 							{
+								"box" : 								{
+									"id" : "obj-38",
+									"maxclass" : "button",
+									"numinlets" : 1,
+									"numoutlets" : 1,
+									"outlettype" : [ "bang" ],
+									"parameter_enable" : 1,
+									"patching_rect" : [ 343.837213158607483, 660.0, 24.0, 24.0 ],
+									"presentation" : 1,
+									"presentation_rect" : [ 343.837213158607483, 660.0, 24.0, 24.0 ],
+									"saved_attribute_attributes" : 									{
+										"valueof" : 										{
+											"parameter_enum" : [ "off", "on" ],
+											"parameter_longname" : "button",
+											"parameter_mmax" : 1,
+											"parameter_modmode" : 0,
+											"parameter_shortname" : "button",
+											"parameter_type" : 2
+										}
+
+									}
+,
+									"varname" : "button"
+								}
+
+							}
+, 							{
+								"box" : 								{
+									"id" : "obj-37",
+									"maxclass" : "button",
+									"numinlets" : 1,
+									"numoutlets" : 1,
+									"outlettype" : [ "bang" ],
+									"parameter_enable" : 0,
+									"patching_rect" : [ 466.0, 660.0, 24.0, 24.0 ],
+									"presentation" : 1,
+									"presentation_rect" : [ 466.0, 660.0, 24.0, 24.0 ]
+								}
+
+							}
+, 							{
+								"box" : 								{
+									"id" : "obj-36",
+									"maxclass" : "dial",
+									"numinlets" : 1,
+									"numoutlets" : 1,
+									"outlettype" : [ "float" ],
+									"parameter_enable" : 0,
+									"patching_rect" : [ 504.0, 660.0, 40.0, 40.0 ],
+									"presentation" : 1,
+									"presentation_rect" : [ 325.0, 671.0, 40.0, 40.0 ],
+									"varname" : "dial[1]"
+								}
+
+							}
+, 							{
+								"box" : 								{
+									"id" : "obj-32",
+									"maxclass" : "dial",
+									"numinlets" : 1,
+									"numoutlets" : 1,
+									"outlettype" : [ "float" ],
+									"parameter_enable" : 1,
+									"patching_rect" : [ 292.675016164779663, 660.0, 40.0, 40.0 ],
+									"presentation" : 1,
+									"presentation_rect" : [ 310.0, 656.0, 40.0, 40.0 ],
+									"saved_attribute_attributes" : 									{
+										"valueof" : 										{
+											"parameter_longname" : "dial",
+											"parameter_modmode" : 3,
+											"parameter_shortname" : "dial",
+											"parameter_type" : 0
+										}
+
+									}
+,
+									"varname" : "dial"
+								}
+
+							}
+, 							{
 								"box" : 								{
 									"id" : "obj-27",
 									"maxclass" : "dict.view",
@@ -2808,6 +2935,8 @@
  ],
 		"parameters" : 		{
 			"obj-108::obj-19" : [ "live.numbox[1]", "live.numbox", 0 ],
+			"obj-108::obj-32" : [ "dial", "dial", 0 ],
+			"obj-108::obj-38" : [ "button", "button", 0 ],
 			"obj-108::obj-49" : [ "live.menu", "live.menu", 0 ],
 			"obj-108::obj-53" : [ "live.numbox", "live.numbox", 0 ],
 			"obj-108::obj-61" : [ "live.button", "live.button", 0 ],
