@@ -83,10 +83,16 @@ function parseArgs() {
     ? autoconnectArg.split("=")[1] === "true"
     : false;
 
+  const autoreconnectArg = args.find((arg) => arg.startsWith("autoreconnect="));
+  const autoreconnect = autoreconnectArg
+    ? autoreconnectArg.split("=")[1] === "true"
+    : true;
+
   return {
     updateMode,
     baseUrl,
     autoconnect,
+    autoreconnect,
   };
 }
 

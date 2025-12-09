@@ -24,7 +24,6 @@
 //  Outlets: 2 (outlet 0: object list, outlet 1: detailed info)
 //
 
-autowatch = 1;
 inlets = 1;
 outlets = 2; // outlet 0: object list, outlet 1: detailed info
 
@@ -41,7 +40,7 @@ var patcher = this.patcher;
  *     - "varnames" - Varname count
  *     - "osc_count" - OSC path count
  *   Outlet 1:
- *     - "change" - Parameter change notifications (from ParameterListener)
+ *     - "change" - Parameter change notifications
  *     - "detail" - Detailed info for each object (dict object)
  *     - "osc" - OSC path generation (dict object)
  *     - "json" - JSON export (string)
@@ -83,12 +82,34 @@ function getFloatRange(box, defaultMin, defaultMax) {
 }
 
 /**
+ * Make a safe replacer for JSON.stringify
+ * @returns {Function} Safe replacer function
+ * Example:
+ * const safe = JSON.stringify(box, makeSafeReplacer());
+ * post("box: " + safe + "\n");
+ */
+function makeSafeReplacer() {
+  const seen = new WeakSet();
+  return function (key, value) {
+    if (typeof value === "object" && value !== null) {
+      if (seen.has(value)) return "[Circular]";
+      seen.add(value);
+    }
+    return value;
+  };
+}
+
+/**
  * Extract detailed information from an object
  * @param {Object} box - Max box object
  * @param {number} index - Object index
  * @returns {Object} Object information
  */
 function getObjectInfo(box, index) {
+  // Only process Live UI objects (maxclass starting with "live.")
+  if (!box.maxclass || box.maxclass.indexOf("live.") !== 0) {
+    return null;
+  }
   const varname = box.getattr("varname") || "unnamed_" + index;
   // Align structure with ParameterManager parse output: path, type, value, range, description, access
   const info = {
@@ -99,7 +120,7 @@ function getObjectInfo(box, index) {
     type: "unknown",
     value: null,
     range: null,
-    description: box.maxclass,
+    description: varname,
     presentation_rect: box.getattr("presentation_rect"),
   };
 
@@ -129,40 +150,34 @@ function getObjectInfo(box, index) {
 
   // Determine type and range based on object class
   switch (box.maxclass) {
+    // case "slider":
+    // case "dial":
+    // case "number~":
+    // case "number":
     case "live.dial":
     case "live.slider":
     case "live.numbox":
-    case "slider":
-    case "dial":
-    case "number~":
-    case "number":
       info.type = "float";
       const range = getFloatRange(box, 0, 127);
       info.min = range.min;
       info.max = range.max;
       info.range = { MIN: info.min, MAX: info.max };
-      post("  Possible values: range [" + info.min + " to " + info.max + "]\n");
       break;
-
-    case "toggle":
+    // case "toggle":
     case "live.toggle":
       info.type = "bool";
       info.min = 0;
       info.max = 1;
       info.steps = 2;
       info.range = { MIN: 0, MAX: 1 };
-      post("  Possible values: [0, 1] (boolean)\n");
       break;
-
-    case "button":
+    // case "toggle":
     case "live.button":
       info.type = "bang";
-      post("  Possible values: bang (no value)\n");
       break;
-
+    // case "umenu":
     case "live.menu":
     case "live.tab":
-    case "umenu":
       info.type = "enum";
       try {
         const items = box.getattr("items");
@@ -170,12 +185,11 @@ function getObjectInfo(box, index) {
           info.enum_values = items;
           info.steps = items.length;
           info.range = { VALS: items };
-          post("  Possible values: " + JSON.stringify(items) + "\n");
         } else {
-          post("  Possible values: (no items found)\n");
+          post("Possible values: (no items found)\n");
         }
       } catch (e) {
-        post("  Possible values: (unable to read items)\n");
+        post("Possible values: (unable to read items)\n");
       }
       break;
 
@@ -186,18 +200,16 @@ function getObjectInfo(box, index) {
         if (modes === 1) {
           info.type = "bool";
           info.range = { MIN: 0, MAX: 1 };
-          post("  Possible values: [0, 1] (boolean text mode)\n");
         } else {
-          post("  Possible values: text string\n");
+          post("Possible values: text string\n");
         }
       } catch (e) {
-        post("  Possible values: text string\n");
+        post("Possible values: text string\n");
       }
       break;
 
     default:
-      info.type = "generic";
-      post("  Possible values: (generic type)\n");
+      return null; // ignore non-live classes
   }
 
   return info;
@@ -245,17 +257,6 @@ function iteratePresentationObjects(callback) {
     const inPresentation = allBoxes.getattr("presentation");
 
     if (inPresentation === 1) {
-      // Log all live classes
-      if (allBoxes.maxclass && allBoxes.maxclass.indexOf("live.") === 0) {
-        post(
-          "Live class found: " +
-            allBoxes.maxclass +
-            " (varname: " +
-            (allBoxes.getattr("varname") || "unnamed") +
-            ")\n"
-        );
-      }
-
       callback(allBoxes, count);
     }
 
@@ -266,22 +267,46 @@ function iteratePresentationObjects(callback) {
 // Initialize state object
 const state = {
   presentationObjects: [],
-  parameterListeners: {}, // Map of varname -> ParameterListener
+  maxobjListeners: {}, // Map of path -> MaxobjListener
 };
 
+// Release and clear all listeners
+function cleanupListeners() {
+  // MaxobjListener instances
+  for (var m in state.maxobjListeners) {
+    post("Cleaning up MaxobjListener for " + m + "\n");
+    if (state.maxobjListeners.hasOwnProperty(m)) {
+      var ml = state.maxobjListeners[m];
+      post("MaxobjListener found for " + m + "\n");
+      //TODO MaxobjListener is not a function
+      if (ml && typeof ml.free === "function") {
+        try {
+          ml.free();
+          post("MaxobjListener freed for " + m + "\n");
+        } catch (e2) {
+          post("Failed to cleanup MaxobjListener for " + m + ": " + e2 + "\n");
+        }
+      }
+    }
+  }
+  state.maxobjListeners = {};
+}
+
 /**
- * Parameter change callback for ParameterListener
- * @param {ParameterListenerData} data - Parameter change data
+ * Max object change callback for MaxobjListener
+ * @param {MaxobjListenerData} data - Max object change data
  */
-function parameterChanged(data) {
-  // Output parameter change (similar to oscquery.client.js onParameterChange)
-  const changeDict = {
-    path: "/" + data.name,
+function maxobjChanged(data) {
+  const maxobj = data.maxobject;
+  const varname =
+    (maxobj && maxobj.getattr && maxobj.getattr("varname")) || "unknown";
+  const path = "/" + varname;
+  const changedDict = {
+    path: path,
     value: data.value,
   };
-  outletTo(1, "change", changeDict);
-
-  post("Parameter changed: " + data.name + " = " + data.value + "\n");
+  outletTo(1, "change", { changedDict });
+  post("Maxobj changed: " + varname + " = " + data.value + "\n");
 }
 
 /**
@@ -289,39 +314,35 @@ function parameterChanged(data) {
  * @returns {Array} Array of presentation objects
  */
 function scan() {
-  // Clean up existing parameter listeners
-  for (var varname in state.parameterListeners) {
-    if (state.parameterListeners.hasOwnProperty(varname)) {
-      // ParameterListener objects don't have explicit cleanup, but we'll remove from map
-      delete state.parameterListeners[varname];
-    }
-  }
+  // Clean up existing listeners
+  cleanupListeners();
 
   state.presentationObjects = [];
   const objectMap = {};
 
   iteratePresentationObjects((box, index) => {
     const objInfo = getObjectInfo(box, index);
+    if (!objInfo) {
+      return; // skip non-live objects
+    }
     state.presentationObjects.push(objInfo);
     objectMap[objInfo.varname] = objInfo;
 
-    // Create ParameterListener for each object with a varname
-    // See: https://docs.cycling74.com/legacy/max8/vignettes/jsparamlistener#ParameterListenerData
+    // Observe the Max object directly for value changes
     if (
       objInfo.varname &&
       objInfo.varname !== "" &&
       objInfo.varname.indexOf("unnamed_") !== 0
     ) {
       try {
-        var listener = new ParameterListener(objInfo.varname, parameterChanged);
-        state.parameterListeners[objInfo.varname] = listener;
-        post("Created ParameterListener for: " + objInfo.varname + "\n");
-      } catch (e) {
+        const maxListener = new MaxobjListener(box, maxobjChanged);
+        state.maxobjListeners[objInfo.path] = maxListener;
+      } catch (e2) {
         post(
-          "Failed to create ParameterListener for " +
-            objInfo.varname +
+          "Failed to create MaxobjListener for " +
+            objInfo.path +
             ": " +
-            e +
+            e2 +
             "\n"
         );
       }
@@ -473,6 +494,9 @@ function export_json() {
  * Handle bang message - triggers scan
  */
 function bang() {
+  // Wipe state before rescanning
+  cleanupListeners();
+  state.presentationObjects = [];
   scan();
 }
 
