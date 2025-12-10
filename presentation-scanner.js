@@ -283,6 +283,7 @@ function iteratePresentationObjects(callback) {
 const state = {
   presentationObjects: [],
   maxobjListeners: {}, // Map of path -> MaxobjListener
+  patchName: null, // Name of the current patch
 };
 
 // Release and clear all listeners
@@ -445,7 +446,7 @@ function getvalue(varname) {
       outletTo(1, "value", valueDict);
       return value;
     } catch (e) {
-      // Unable to read value
+      post("Failed to get value for " + varname + ": " + e + "\n");
     }
   }
 
@@ -464,7 +465,7 @@ function setvalue(varname, value) {
     try {
       box.message(value);
     } catch (e) {
-      // Unable to set value
+      post("Failed to set value for " + varname + ": " + e + "\n");
     }
   }
 }
@@ -486,6 +487,103 @@ function list_varnames() {
   });
 
   outletTo(0, "varnames", { count: count });
+}
+
+/**
+ * Set the patch name
+ * @param {string} name - Name of the patch
+ */
+function set_patchname(name) {
+  if (typeof name === "string" && name !== "") {
+    state.patchName = name;
+    post("Patch name set to: " + name + "\n");
+  } else {
+    post("Invalid patch name provided\n");
+  }
+}
+
+/**
+ * Handle received values from OSC/OSCQuery
+ * Inspects incoming data and updates MaxMSP box objects if patch name matches
+ * @param {Object|string} data - Incoming data object or JSON string
+ * Expected format: { path: "/Testpatch/Data", value: 43.553905 }
+ */
+function msg_dictionary(data) {
+  post("Msg_dictionary data: " + JSON.stringify(data));
+  // data should be json object
+
+  const path = data.path;
+  const value = data.value;
+
+  if (!path || value === undefined || value === null) {
+    post("Missing path or value in updated_value data\n");
+    return;
+  }
+
+  // Parse path: "/Testpatch/Data" -> ["Testpatch", "Data"]
+  const pathParts = path.split("/").filter(function (part) {
+    return part !== "";
+  });
+
+  if (pathParts.length < 2) {
+    post(
+      "Invalid path format. Expected: /PatchName/ObjectName, got: " +
+        path +
+        "\n"
+    );
+    return;
+  }
+
+  const incomingPatchName = pathParts[0];
+  const objectVarname = pathParts[1];
+
+  // Check if patch name matches
+  if (state.patchName === null || state.patchName === undefined) {
+    post("Patch name not set. Use set_patchname to set it first.\n");
+    return;
+  }
+
+  if (incomingPatchName !== state.patchName) {
+    post(
+      "Patch name mismatch. Expected: " +
+        state.patchName +
+        ", got: " +
+        incomingPatchName +
+        "\n"
+    );
+    return;
+  }
+
+  // Find and update the MaxMSP box object
+  const box = patcher.getnamed(objectVarname);
+
+  if (!box) {
+    post("Object with varname '" + objectVarname + "' not found\n");
+    return;
+  }
+
+  // Check if object is in presentation mode
+  const inPresentation = box.getattr("presentation");
+  if (inPresentation !== 1) {
+    post("Object '" + objectVarname + "' is not in presentation mode\n");
+    return;
+  }
+
+  // Update the value
+  try {
+    box.message(value);
+    post(
+      "Updated value for '" +
+        objectVarname +
+        "' to " +
+        value +
+        " (path: " +
+        path +
+        ")\n"
+    );
+  } catch (e) {
+    post("Failed to set value for " + objectVarname + ": " + e + "\n");
+  }
 }
 
 /**

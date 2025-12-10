@@ -712,21 +712,14 @@ function setupIncomingMessageHandlers() {
           return; // Skip if incoming messages are disabled
         }
 
-        const address = msg[0];
-        const data = msg.slice(1);
+        const path = msg[0];
+        const value = msg.slice(1);
 
-        // Output to Max with osc_message tag
-        if (Array.isArray(data)) {
-          if (data.length === 1) {
-            outletTo(1, address, data[0]);
-          } else if (data.length === 0) {
-            outletTo(1, address);
-          } else {
-            outletTo(1, address, ...data);
-          }
-        } else {
-          outletTo(1, address, data);
-        }
+        const messageObject = {
+          path: path,
+          value: value,
+        };
+        outletTo(1, messageObject);
       });
 
       logger("OSC message handler attached to UDP server");
@@ -743,18 +736,22 @@ function setupIncomingMessageHandlers() {
       // Set our custom handler that wraps the original
       wsServer.setOSCMessageHandler((path, args) => {
         // Output to Max with osc_message tag (if enabled)
+
         if (state.incomingMessages.enabled) {
+          let messageObject;
           if (Array.isArray(args)) {
-            if (args.length === 1) {
-              outletTo(1, path, args[0]);
-            } else if (args.length === 0) {
-              outletTo(1, path);
-            } else {
-              outletTo(1, path, ...args);
-            }
+            // If exactly one element, flatten; else keep as array
+            messageObject = {
+              path: path,
+              value: args.length === 1 ? args[0] : args,
+            };
           } else {
-            outletTo(1, path, args);
+            messageObject = {
+              path: path,
+              value: args,
+            };
           }
+          outletTo(1, messageObject);
         }
 
         // Call original handler to maintain server functionality
