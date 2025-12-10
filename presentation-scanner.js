@@ -321,7 +321,6 @@ function maxobjChanged(data) {
     value: data.value,
   };
   outletTo(1, "change", { changedDict });
-  post("Maxobj changed: " + varname + " = " + data.value + "\n");
 }
 
 /**

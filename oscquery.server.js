@@ -41,6 +41,8 @@
  *   service_name=<string>    - mDNS service name (default: "MaxOSCQuery")
  *   osc_port=<number>        - OSC port (default: same as http_port)
  *   ws_port=<number>         - WebSocket port (default: same as http_port)
+ *   autostart=<true|false>   - Automatically start server on initialization (default: true)
+ *   broadcast=<true|false>   - Broadcast OSC messages to all clients (default: true)
  *
  * Note: node.script has only 1 output edge. Data is sent with routing tags:
  *   - "state" for server state (outlet 0)
@@ -109,12 +111,26 @@ function parseArgs() {
   const wsPortArg = args.find((arg) => arg.startsWith("ws_port="));
   const wsPort = wsPortArg ? parseInt(wsPortArg.split("=")[1], 10) : null;
 
+  const autostartArg = args.find((arg) => arg.startsWith("autostart="));
+  const autostart = autostartArg
+    ? autostartArg.split("=")[1] === "true" ||
+      autostartArg.split("=")[1] === "1"
+    : true; // Default to true
+
+  const broadcastArg = args.find((arg) => arg.startsWith("broadcast="));
+  const broadcast = broadcastArg
+    ? broadcastArg.split("=")[1] === "true" ||
+      broadcastArg.split("=")[1] === "1"
+    : true; // Default to true
+
   return {
     httpPort,
     bindAddress,
     serviceName,
     oscPort,
     wsPort,
+    autostart,
+    broadcast,
   };
 }
 
@@ -141,6 +157,8 @@ state.options = {
   serviceName: args.serviceName,
   oscPort: args.oscPort,
   wsPort: args.wsPort,
+  autostart: args.autostart,
+  broadcast: args.broadcast,
 };
 
 /**
@@ -476,7 +494,7 @@ function extractMaxObjects(obj, collected = [], parentKey = "") {
  * Load Max objects from JSON file or JSON string and create OSC methods
  * Handles nested JSON structures by recursively traversing the object tree
  */
-function loadFromJSON(name, jsonPathOrData) {
+function loadFromJSON(clientName, jsonPathOrData) {
   if (!state.started || !state.server) {
     logger("Server not started. Call 'start' first.");
     outletTo(2, "not_started", "Server not started");
@@ -611,7 +629,7 @@ function loadFromJSON(name, jsonPathOrData) {
       // Iterate through all extracted objects and create OSC methods
       for (const { key, obj } of maxObjects) {
         try {
-          const oscPath = name + obj.path;
+          const oscPath = clientName + obj.path;
           if (!oscPath || typeof oscPath !== "string") {
             logger(`Skipping ${key}: missing or invalid path`);
             errorCount++;
@@ -659,14 +677,14 @@ function loadFromJSON(name, jsonPathOrData) {
     }
 
     logger(
-      `\nLoaded ${successCount} methods successfully${
+      `\nLoaded ${successCount} methods for client ${clientName} successfully${
         errorCount > 0 ? `, ${errorCount} errors` : ""
       }`
     );
   } catch (error) {
     const errorMsg = error && error.message ? error.message : String(error);
-    logger(`Failed to load from JSON: ${errorMsg}`);
-    outletTo(2, "load_json_failed", errorMsg);
+    logger(`Failed to load from JSON for client ${clientName}: ${errorMsg}`);
+    outletTo(2, "load_json_failed", clientName, errorMsg);
   }
 }
 
@@ -753,8 +771,11 @@ function setupIncomingMessageHandlers() {
   }
 }
 
-// Initialize Max API handlers
-maxAPI.addHandler("start", async () => {
+/**
+ * Start the OSCQuery server
+ * Extracted to a function so it can be called from handler or autostart
+ */
+async function startServer() {
   if (state.started) {
     logger("Server already started");
     return;
@@ -778,7 +799,10 @@ maxAPI.addHandler("start", async () => {
     logger("Failed to start server:", errorMsg);
     outletTo(2, "start_failed", errorMsg);
   }
-});
+}
+
+// Initialize Max API handlers
+maxAPI.addHandler("start", startServer);
 
 maxAPI.addHandler("stop", async () => {
   if (!state.started || !state.server) {
@@ -991,15 +1015,15 @@ maxAPI.addHandler("is_started", () => {
   outletTo(0, state.started ? "started" : "stopped");
 });
 
-maxAPI.addHandler("load_from_json", (name, jsonPathOrData) => {
+maxAPI.addHandler("load_from_json", (clientName, jsonPathOrData) => {
   if (!jsonPathOrData) {
     logger("Path or JSON data is required for load_from_json");
     outletTo(2, "invalid_input", "Path or JSON data is required");
     return;
   }
-  if (!name || typeof name !== "string") {
-    logger("Name is required for load_from_json");
-    outletTo(2, "invalid_name", "Name is required");
+  if (!clientName || typeof clientName !== "string") {
+    logger("Client name is required for load_from_json");
+    outletTo(2, "invalid_client", "Client name is required");
     return;
   }
   if (!jsonPathOrData) {
@@ -1007,7 +1031,71 @@ maxAPI.addHandler("load_from_json", (name, jsonPathOrData) => {
     outletTo(2, "invalid_input", "Path or JSON data is required");
     return;
   }
-  loadFromJSON(name, jsonPathOrData);
+  loadFromJSON(clientName, jsonPathOrData);
+});
+
+maxAPI.addHandler("updated_value", (clientName, jsonPathOrData) => {
+  if (!state.started || !state.server) {
+    logger("Server not started. Call 'start' first.");
+    outletTo(2, "not_started", "Server not started");
+    return;
+  }
+
+  if (!clientName || typeof clientName !== "string") {
+    logger("Client name is required for updated_value");
+    outletTo(2, "invalid_client", "Client name is required");
+    return;
+  }
+
+  if (!jsonPathOrData) {
+    logger("Path or JSON data is required for updated_value");
+    outletTo(2, "invalid_input", "Path or JSON data is required");
+    return;
+  }
+
+  let payload = jsonPathOrData;
+
+  if (typeof jsonPathOrData === "string") {
+    try {
+      payload = JSON.parse(jsonPathOrData);
+    } catch (error) {
+      const errorMsg = error && error.message ? error.message : String(error);
+      logger("Invalid JSON for updated_value:", errorMsg);
+      outletTo(2, "invalid_json", errorMsg);
+      return;
+    }
+  }
+
+  if (!payload || typeof payload !== "object") {
+    logger("Invalid payload for updated_value");
+    outletTo(2, "invalid_payload", "Payload must be an object");
+    return;
+  }
+
+  const receivedDict = payload;
+  const path = receivedDict && receivedDict.path;
+  const value = receivedDict ? receivedDict.value : undefined;
+
+  if (!path || typeof path !== "string") {
+    logger("Path is required in receivedDict for updated_value");
+    outletTo(2, "invalid_path", "Path is required in receivedDict");
+    return;
+  }
+
+  const oscPath = "/" + clientName + path;
+  const values = Array.isArray(value) ? value : [value];
+
+  try {
+    values.forEach((val, index) => {
+      state.server.setValue(oscPath, index, val);
+    });
+    state.server.sendValue(oscPath, ...values);
+    logger(`Updated value for ${oscPath}:`, ...values);
+  } catch (error) {
+    const errorMsg = error && error.message ? error.message : String(error);
+    logger(`Failed to update value for ${oscPath}:`, errorMsg);
+    outletTo(2, "updated_value_failed", oscPath, errorMsg);
+  }
 });
 
 maxAPI.addHandler("logging", (enabled) => {
@@ -1052,6 +1140,8 @@ maxAPI.addHandler("incoming_messages", (enabled) => {
 logger("OSCQuery Server initialized");
 outletTo(0, "stopped"); // Initial state: stopped
 
-// Note: To use autostart:
-// 1. Set @autostart 1 in Max object attributes
-// 2. Or send "start" message after initialization
+// Autostart if enabled (default: true)
+if (state.options.autostart) {
+  logger("Autostart enabled, starting server...");
+  startServer();
+}

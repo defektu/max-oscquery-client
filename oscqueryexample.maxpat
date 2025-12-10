@@ -14,52 +14,6 @@
 		"gridsize" : [ 15.0, 15.0 ],
 		"boxes" : [ 			{
 				"box" : 				{
-					"id" : "obj-132",
-					"maxclass" : "newobj",
-					"numinlets" : 0,
-					"numoutlets" : 0,
-					"patching_rect" : [ 1016.425892949104309, 470.0, 55.0, 22.0 ],
-					"text" : "udpsend"
-				}
-
-			}
-, 			{
-				"box" : 				{
-					"id" : "obj-133",
-					"maxclass" : "newobj",
-					"numinlets" : 1,
-					"numoutlets" : 1,
-					"outlettype" : [ "" ],
-					"patching_rect" : [ 1017.425892949104309, 436.0, 67.0, 22.0 ],
-					"text" : "udpreceive"
-				}
-
-			}
-, 			{
-				"box" : 				{
-					"id" : "obj-131",
-					"maxclass" : "newobj",
-					"numinlets" : 0,
-					"numoutlets" : 0,
-					"patching_rect" : [ 619.259238958358765, 466.0, 55.0, 22.0 ],
-					"text" : "udpsend"
-				}
-
-			}
-, 			{
-				"box" : 				{
-					"id" : "obj-128",
-					"maxclass" : "newobj",
-					"numinlets" : 1,
-					"numoutlets" : 1,
-					"outlettype" : [ "" ],
-					"patching_rect" : [ 619.259238958358765, 432.0, 67.0, 22.0 ],
-					"text" : "udpreceive"
-				}
-
-			}
-, 			{
-				"box" : 				{
 					"id" : "obj-122",
 					"maxclass" : "newobj",
 					"numinlets" : 1,
@@ -170,7 +124,7 @@
 						}
 ,
 						"classnamespace" : "box",
-						"rect" : [ 2892.0, 85.0, 433.0, 912.0 ],
+						"rect" : [ 2892.0, 85.0, 433.0, 905.0 ],
 						"gridsize" : [ 15.0, 15.0 ],
 						"visible" : 1,
 						"boxes" : [ 							{
@@ -1002,10 +956,35 @@
 						}
 ,
 						"classnamespace" : "box",
-						"rect" : [ -31958.0, -31915.0, 1852.0, 921.0 ],
+						"rect" : [ 34.0, 77.0, 1852.0, 921.0 ],
 						"gridsize" : [ 15.0, 15.0 ],
 						"visible" : 1,
 						"boxes" : [ 							{
+								"box" : 								{
+									"id" : "obj-102",
+									"maxclass" : "newobj",
+									"numinlets" : 1,
+									"numoutlets" : 1,
+									"outlettype" : [ "bang" ],
+									"patching_rect" : [ 241.538447141647339, 183.202140927314758, 58.0, 22.0 ],
+									"text" : "loadbang"
+								}
+
+							}
+, 							{
+								"box" : 								{
+									"id" : "obj-103",
+									"maxclass" : "message",
+									"numinlets" : 2,
+									"numoutlets" : 1,
+									"outlettype" : [ "" ],
+									"patching_rect" : [ 241.538447141647339, 216.279062032699585, 104.0, 22.0 ],
+									"presentation_linecount" : 2,
+									"text" : "script npm update"
+								}
+
+							}
+, 							{
 								"box" : 								{
 									"id" : "obj-90",
 									"maxclass" : "newobj",
@@ -1072,8 +1051,8 @@
 									"numinlets" : 1,
 									"numoutlets" : 1,
 									"outlettype" : [ "" ],
-									"patching_rect" : [ 983.720895051956177, 327.906965017318726, 127.0, 22.0 ],
-									"text" : "prepend changed_dict"
+									"patching_rect" : [ 983.720895051956177, 327.906965017318726, 135.0, 22.0 ],
+									"text" : "prepend updated_value"
 								}
 
 							}
@@ -1443,9 +1422,9 @@
 									"numinlets" : 1,
 									"numoutlets" : 2,
 									"outlettype" : [ "", "" ],
-									"patching_rect" : [ 530.232539176940918, 423.255798816680908, 655.0, 22.0 ],
+									"patching_rect" : [ 530.232539176940918, 423.255798816680908, 604.0, 22.0 ],
 									"saved_object_attributes" : 									{
-										"args" : [ "url=http://localhost:5678", "update_mode=true", "autoconnect=true" ],
+										"args" : [ "service_name=MaxOscQueryServer", "broadcast=true" ],
 										"autostart" : 1,
 										"defer" : 0,
 										"node_bin_path" : "",
@@ -1453,7 +1432,7 @@
 										"watch" : 1
 									}
 ,
-									"text" : "node.script oscquery.server @args url=http://localhost:5678 update_mode=true autoconnect=true @autostart 1 @watch 1",
+									"text" : "node.script oscquery.server @args service_name=MaxOscQueryServer broadcast=true @autostart 1 @watch 1",
 									"textfile" : 									{
 										"filename" : "oscquery.server.js",
 										"flags" : 0,
@@ -1506,6 +1485,20 @@
 								"patchline" : 								{
 									"destination" : [ "obj-40", 0 ],
 									"source" : [ "obj-10", 0 ]
+								}
+
+							}
+, 							{
+								"patchline" : 								{
+									"destination" : [ "obj-103", 0 ],
+									"source" : [ "obj-102", 0 ]
+								}
+
+							}
+, 							{
+								"patchline" : 								{
+									"destination" : [ "obj-10", 0 ],
+									"source" : [ "obj-103", 0 ]
 								}
 
 							}
@@ -1678,7 +1671,16 @@
 							}
 , 							{
 								"patchline" : 								{
+									"destination" : [ "obj-10", 0 ],
+									"order" : 1,
+									"source" : [ "obj-84", 0 ]
+								}
+
+							}
+, 							{
+								"patchline" : 								{
 									"destination" : [ "obj-33", 0 ],
+									"order" : 0,
 									"source" : [ "obj-84", 0 ]
 								}
 
