@@ -147,6 +147,8 @@ const state = {
   incomingMessages: {
     enabled: true,
   },
+  // Track WebSocket client roots so we can remove OSCQuery nodes on disconnect
+  clientRoots: {},
 };
 
 // Parse command line arguments
@@ -769,6 +771,115 @@ function setupIncomingMessageHandlers() {
 }
 
 /**
+ * Normalize a root path to always start with "/"
+ */
+function normalizeRootPath(rootPath) {
+  if (!rootPath || typeof rootPath !== "string") {
+    return null;
+  }
+  return rootPath.startsWith("/") ? rootPath : "/" + rootPath;
+}
+
+/**
+ * Increment ref-count for a client root
+ */
+function trackClientRoot(rootPath) {
+  const normalized = normalizeRootPath(rootPath);
+  if (!normalized) return;
+  state.clientRoots[normalized] = (state.clientRoots[normalized] || 0) + 1;
+  logger(
+    `Tracking client root ${normalized} (count=${state.clientRoots[normalized]})`
+  );
+}
+
+/**
+ * Decrement ref-count and remove root when no clients remain
+ */
+function releaseClientRoot(rootPath) {
+  const normalized = normalizeRootPath(rootPath);
+  if (!normalized) return;
+
+  const current = state.clientRoots[normalized] || 0;
+  if (current <= 0) {
+    return;
+  }
+
+  const next = current - 1;
+  if (next > 0) {
+    state.clientRoots[normalized] = next;
+    logger(`Client root ${normalized} still in use (count=${next})`);
+    return;
+  }
+
+  delete state.clientRoots[normalized];
+
+  try {
+    if (state.server && typeof state.server.removeMethod === "function") {
+      // Try both "/root" and "root" because load_from_json prefixes clientName without a leading slash
+      const variants = [normalized];
+      if (normalized.startsWith("/")) {
+        variants.push(normalized.substring(1));
+      }
+
+      variants.forEach((p) => {
+        try {
+          state.server.removeMethod(p);
+          logger(`Removed OSCQuery root for disconnected client: ${p}`);
+        } catch (err) {
+          const msg = err && err.message ? err.message : String(err);
+          logger(`Failed to remove OSCQuery root ${p}:`, msg);
+        }
+      });
+    }
+  } catch (error) {
+    const errorMsg = error && error.message ? error.message : String(error);
+    logger(`Failed to remove OSCQuery root ${normalized}:`, errorMsg);
+  }
+}
+
+/**
+ * Attach cleanup to WebSocket disconnects so we remove OSCQuery roots
+ */
+function setupWebSocketDisconnectCleanup() {
+  if (
+    !state.server ||
+    !state.server._wsServer ||
+    !state.server._wsServer._wsServer
+  ) {
+    logger("WebSocket server not available for disconnect cleanup");
+    return;
+  }
+
+  const rawWsServer = state.server._wsServer._wsServer;
+  if (typeof rawWsServer.on !== "function") {
+    logger("WebSocket server missing event emitter interface");
+    return;
+  }
+
+  rawWsServer.on("connection", (ws, req) => {
+    // Use request path (excluding query) as the client root, e.g. "/ClientName"
+    const urlPath = req && req.url ? req.url.split("?")[0] : "";
+    const pathParts = urlPath.split("/").filter(Boolean);
+    const rootPath =
+      pathParts.length > 0 ? normalizeRootPath(pathParts[0]) : null;
+
+    if (!rootPath) {
+      logger("WebSocket client connected without root path");
+      return;
+    }
+
+    trackClientRoot(rootPath);
+
+    const cleanup = () => {
+      releaseClientRoot(rootPath);
+    };
+
+    ws.on("close", cleanup);
+    ws.on("error", cleanup);
+  });
+}
+
+/**
  * Start the OSCQuery server
  * Extracted to a function so it can be called from handler or autostart
  */
@@ -786,6 +897,7 @@ async function startServer() {
 
     // Setup incoming message handlers after server starts
     setupIncomingMessageHandlers();
+    setupWebSocketDisconnectCleanup();
 
     logger("Server started");
     logger("Host Info:", JSON.stringify(hostInfo, null, 2));

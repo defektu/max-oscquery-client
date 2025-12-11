@@ -288,24 +288,18 @@ const state = {
 
 // Release and clear all listeners
 function cleanupListeners() {
-  // MaxobjListener instances
-  for (var m in state.maxobjListeners) {
-    post("Cleaning up MaxobjListener for " + m + "\n");
-    if (state.maxobjListeners.hasOwnProperty(m)) {
-      var ml = state.maxobjListeners[m];
-      post("MaxobjListener found for " + m + "\n");
-      //TODO MaxobjListener is not a function
-      if (ml && typeof ml.free === "function") {
-        try {
-          ml.free();
-          post("MaxobjListener freed for " + m + "\n");
-        } catch (e2) {
-          post("Failed to cleanup MaxobjListener for " + m + ": " + e2 + "\n");
-        }
-      }
-    }
+  for (var key in state.maxobjListeners) {
+    post("Cleaning up MaxobjListener for " + key + "\n");
+
+    // removing the property is enough to drop the reference
+    delete state.maxobjListeners[key];
   }
+
+  // clear container
   state.maxobjListeners = {};
+
+  // call gc once
+  gc();
 }
 
 /**
@@ -352,6 +346,7 @@ function scan() {
       try {
         const maxListener = new MaxobjListener(box, maxobjChanged);
         state.maxobjListeners[objInfo.path] = maxListener;
+        post("MaxobjListener created for " + objInfo.path + "\n");
       } catch (e2) {
         post(
           "Failed to create MaxobjListener for " +
