@@ -43,6 +43,8 @@
  *   ws_port=<number>         - WebSocket port (default: same as http_port)
  *   autostart=<true|false>   - Automatically start server on initialization (default: true)
  *   broadcast=<true|false>   - Broadcast OSC messages to all clients (default: true)
+ *   description=<string>     - Root description for OSCQuery server (default: undefined)
+ *   osc_query_host_name=<string> - OSCQuery host name (default: service_name)
  *
  * Note: node.script has only 1 output edge. Data is sent with routing tags:
  *   - "state" for server state (outlet 0)
@@ -123,6 +125,18 @@ function parseArgs() {
       broadcastArg.split("=")[1] === "1"
     : true; // Default to true
 
+  const descriptionArg = args.find((arg) => arg.startsWith("description="));
+  const rootDescription = descriptionArg
+    ? descriptionArg.split("=")[1]
+    : serviceName;
+
+  const oscQueryHostNameArg = args.find((arg) =>
+    arg.startsWith("osc_query_host_name=")
+  );
+  const oscQueryHostName = oscQueryHostNameArg
+    ? oscQueryHostNameArg.split("=")[1]
+    : serviceName;
+
   return {
     httpPort,
     bindAddress,
@@ -131,6 +145,8 @@ function parseArgs() {
     wsPort,
     autostart,
     broadcast,
+    rootDescription,
+    oscQueryHostName,
   };
 }
 
@@ -161,6 +177,8 @@ state.options = {
   wsPort: args.wsPort,
   autostart: args.autostart,
   broadcast: args.broadcast,
+  rootDescription: args.rootDescription,
+  oscQueryHostName: args.oscQueryHostName,
 };
 
 /**
@@ -900,6 +918,7 @@ async function startServer() {
     setupWebSocketDisconnectCleanup();
 
     logger("Server started");
+    logger("Root Description:", state.options.rootDescription);
     logger("Host Info:", JSON.stringify(hostInfo, null, 2));
     outletTo(0, "started");
     outletTo(3, hostInfo);
