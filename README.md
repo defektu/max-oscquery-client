@@ -87,10 +87,44 @@ You can set these attributes in the Max object inspector or via messages:
 
 - `ws` (^8.18.3) - WebSocket library for Node.js
 
+## mDNS Discovery
+
+The package includes `mdns.resolve.js` for discovering OSCQuery services and custom mDNS services on your local network.
+
+### Usage
+
+```max
+[node.script mdns.resolve.js]
+|
+[route ipv4 error service_up service_down service_list]
+```
+
+### Commands
+
+- `discovery_start [service_types...]` - Start discovering services
+  - Default: discovers OSCQuery and HTTP services
+  - Example: `discovery_start _http._tcp _https._tcp`
+- `discovery_stop` - Stop discovery
+- `discovery_list` - List all currently discovered services
+
+### Features
+
+- **Automatic network interface detection**: Automatically detects and uses the correct network interface for network-wide discovery
+- **OSCQuery discovery**: Discovers OSCQuery services automatically
+- **Custom service types**: Discover any mDNS service type (e.g., `_http._tcp`, `_https._tcp`)
+- **Network-wide discovery**: Finds services across your local network, not just localhost
+
+### Output
+
+- `service_up` - Emitted when a service is discovered: `address port name type`
+- `service_down` - Emitted when a service is removed: `address port`
+- `service_list` - Dictionary of all discovered services
+
 ## Notes
 
 - The client uses the `ws` package for WebSocket support (native WebSocket is disabled)
 - WebSocket connections are established automatically if the server supports the LISTEN extension
 - Parameter values are validated against type information from the server before sending
 - All parameter changes are automatically listened to via WebSocket when connected
+- mDNS discovery automatically detects the correct network interface (especially important on Windows)
 

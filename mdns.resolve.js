@@ -1,7 +1,7 @@
 /**
  * Max/MSP mDNS Resolver
  * A node.script-based external object for resolving mDNS names to IPv4 addresses
- * and discovering OSCQuery services via mDNS
+ * and discovering OSCQuery services and custom service types via mDNS
  *
  * Usage in Max:
  *   [node.script mdns.resolve.js]
@@ -10,7 +10,7 @@
  *   |
  *   [ipv4( [outlet 0]  // IPv4 address (from manual resolve)
  *   [error( [outlet 1]  // Error message
- *   [service_up( [outlet 2]  // Discovered service (address port name)
+ *   [service_up( [outlet 2]  // Discovered service (address port name type)
  *   [service_down( [outlet 3]  // Removed service (address port)
  *
  * Inlets: 1 (mDNS name to resolve, or discovery commands)
@@ -18,13 +18,17 @@
  *
  * Commands:
  *   - resolve <hostname> - Manually resolve mDNS name to IPv4
- *   - discovery_start - Start discovering OSCQuery services
+ *   - discovery_start [service_types...] - Start discovering services (default: oscjson, _http._tcp)
  *   - discovery_stop - Stop discovery
  *   - discovery_list - List all currently discovered services
  */
 
 const maxAPI = require("max-api");
-const { OSCQueryDiscovery, DiscoveredService } = require("oscquery");
+const {
+  OSCQueryDiscovery,
+  DiscoveredService,
+  MDNSDiscovery,
+} = require("oscquery");
 
 /**
  * Send data to Max outlet with routing tag
@@ -75,11 +79,6 @@ function resolve(hostname) {
     maxAPI.post("Removed last dot from hostname:", hostname);
   }
 
-  // Ensure hostname ends with .local (optional, but helpful)
-  const hostnameToResolve = hostname.endsWith(".local")
-    ? hostname
-    : `${hostname}.local`;
-
   // mDNS resolution functionality has been removed
   const errorMsg =
     "mDNS resolution not available (mdns-resolver package removed)";
@@ -88,90 +87,229 @@ function resolve(hostname) {
 }
 
 // Initialize discovery
-let discovery = null;
+let oscQueryDiscovery = null;
+let genericDiscovery = null;
+let discoveredServices = new Map(); // Map of "address:port" -> service info
+
+/**
+ * Start generic mDNS discovery for custom service types
+ * Uses MDNSDiscovery which automatically detects the correct network interface
+ */
+function startGenericDiscovery(serviceTypes = ["_http._tcp"]) {
+  if (genericDiscovery) {
+    maxAPI.post("Generic discovery already running");
+    return;
+  }
+
+  // Use MDNSDiscovery which automatically detects network interface
+  genericDiscovery = new MDNSDiscovery({
+    serviceTypes: serviceTypes,
+    protocol: "tcp",
+    errorCallback: (err) => {
+      maxAPI.post("Generic discovery error:", err.message);
+      outletTo(1, err.message);
+    },
+  });
+
+  genericDiscovery.on("up", (serviceInfo) => {
+    const key = `${serviceInfo.address}:${serviceInfo.port}`;
+    discoveredServices.set(key, serviceInfo);
+
+    maxAPI.post("=== Generic Service Discovered ===");
+    maxAPI.post("  Address:", serviceInfo.address);
+    maxAPI.post("  Port:", serviceInfo.port);
+    maxAPI.post("  Name:", serviceInfo.name);
+    maxAPI.post("  Type:", serviceInfo.fullType);
+
+    listServices();
+    outletTo(
+      2,
+      serviceInfo.address,
+      serviceInfo.port,
+      serviceInfo.name,
+      serviceInfo.fullType
+    );
+  });
+
+  genericDiscovery.on("down", (serviceInfo) => {
+    const key = `${serviceInfo.address}:${serviceInfo.port}`;
+    const existingService = discoveredServices.get(key);
+
+    if (existingService) {
+      maxAPI.post(
+        "Generic service removed:",
+        serviceInfo.address,
+        "port:",
+        serviceInfo.port
+      );
+      discoveredServices.delete(key);
+      listServices();
+      outletTo(3, serviceInfo.address, serviceInfo.port);
+    }
+  });
+
+  genericDiscovery.start();
+  maxAPI.post(
+    "Generic mDNS discovery started for types:",
+    serviceTypes.join(", ")
+  );
+}
+
+/**
+ * Stop generic mDNS discovery
+ */
+function stopGenericDiscovery() {
+  if (!genericDiscovery) {
+    return;
+  }
+
+  genericDiscovery.stop();
+  genericDiscovery = null;
+  discoveredServices.clear();
+  maxAPI.post("Generic mDNS discovery stopped");
+}
 
 /**
  * Initialize and start OSCQuery discovery
  */
-function startDiscovery() {
-  if (discovery) {
-    maxAPI.post("Discovery already running");
+function startOSCQueryDiscovery() {
+  if (oscQueryDiscovery) {
+    maxAPI.post("OSCQuery discovery already running");
     return;
   }
 
-  discovery = new OSCQueryDiscovery();
+  oscQueryDiscovery = new OSCQueryDiscovery();
 
-  discovery.on("up", (service) => {
-    // service is a DiscoveredService instance
+  oscQueryDiscovery.on("up", (service) => {
     maxAPI.post("=== OSCQuery Service Discovered ===");
     maxAPI.post("--- Basic Service Info ---");
     maxAPI.post("  Address:", service.address);
     maxAPI.post("  Port:", service.port);
-    maxAPI.post("  Type:", typeof service);
-    maxAPI.post("  Constructor:", service.constructor.name);
 
-    listServices();
-    outletTo(2, service.address, service.port, service.hostInfo.name);
+    try {
+      const serviceName = service.hostInfo ? service.hostInfo.name : "Unknown";
+      maxAPI.post("  Name:", serviceName);
+      listServices();
+      outletTo(
+        2,
+        service.address,
+        service.port,
+        serviceName,
+        "oscjson._tcp.local"
+      );
+    } catch (error) {
+      const errorMsg = `Failed to get service info: ${error.message}`;
+      maxAPI.post("Error:", errorMsg);
+      outletTo(1, errorMsg);
+    }
   });
 
-  discovery.on("down", (service) => {
-    maxAPI.post("Service removed:", service.address, "port:", service.port);
-    // Output: service_down address port
+  oscQueryDiscovery.on("down", (service) => {
+    maxAPI.post(
+      "OSCQuery service removed:",
+      service.address,
+      "port:",
+      service.port
+    );
     listServices();
     outletTo(3, service.address, service.port);
   });
 
-  discovery.on("error", (error) => {
+  oscQueryDiscovery.on("error", (error) => {
     const errorMsg = error && error.message ? error.message : String(error);
-    maxAPI.post("Discovery error:", errorMsg);
+    maxAPI.post("OSCQuery discovery error:", errorMsg);
     outletTo(1, errorMsg);
   });
 
-  discovery.start();
+  oscQueryDiscovery.start();
   maxAPI.post("OSCQuery discovery started");
 }
 
 /**
  * Stop OSCQuery discovery
  */
-function stopDiscovery() {
-  if (!discovery) {
-    maxAPI.post("Discovery not running");
+function stopOSCQueryDiscovery() {
+  if (!oscQueryDiscovery) {
     return;
   }
 
-  discovery.stop();
-  discovery = null;
+  oscQueryDiscovery.stop();
+  oscQueryDiscovery = null;
   maxAPI.post("OSCQuery discovery stopped");
+}
+
+/**
+ * Start discovery with optional service types
+ * @param {string|string[]} serviceTypes - Service types to discover (e.g., "_http._tcp", "_https._tcp")
+ */
+function startDiscovery(serviceTypes) {
+  // Always start OSCQuery discovery
+  startOSCQueryDiscovery();
+
+  // Start generic discovery if service types provided
+  if (serviceTypes) {
+    const types = Array.isArray(serviceTypes) ? serviceTypes : [serviceTypes];
+    // Default to _http._tcp if no types specified
+    const typesToDiscover = types.length > 0 ? types : ["_http._tcp"];
+    startGenericDiscovery(typesToDiscover);
+  } else {
+    // Default: discover HTTP services
+    startGenericDiscovery(["_http._tcp"]);
+  }
+}
+
+/**
+ * Stop all discovery
+ */
+function stopDiscovery() {
+  stopOSCQueryDiscovery();
+  stopGenericDiscovery();
+  maxAPI.post("All discovery stopped");
 }
 
 /**
  * List all currently discovered services
  */
 function listServices() {
-  if (!discovery) {
-    maxAPI.post("Discovery not running");
-    outletTo(1, "Discovery not running");
-    return;
+  const serviceList = {};
+
+  // Add OSCQuery services
+  if (oscQueryDiscovery) {
+    const oscServices = oscQueryDiscovery.getServices();
+    oscServices.forEach((service) => {
+      try {
+        const name = service.hostInfo
+          ? service.hostInfo.name
+          : `OSCQuery-${service.address}`;
+        serviceList[name] = {
+          address: service.address,
+          port: service.port,
+          name: name,
+          type: "oscjson._tcp.local",
+        };
+      } catch (e) {
+        // Skip services without hostInfo
+      }
+    });
   }
 
-  const services = discovery.getServices();
-  maxAPI.post("Found", services.length, "service(s)");
+  // Add generic discovered services
+  discoveredServices.forEach((serviceInfo, key) => {
+    serviceList[serviceInfo.name] = {
+      address: serviceInfo.address,
+      port: serviceInfo.port,
+      name: serviceInfo.name,
+      type: serviceInfo.fullType,
+    };
+  });
 
-  if (services.length === 0) {
+  const count = Object.keys(serviceList).length;
+  maxAPI.post("Found", count, "service(s)");
+
+  if (count === 0) {
     maxAPI.post("No services discovered yet");
     return;
   }
-
-  // Output all services as dict aka json (do not make them arrays)
-  const serviceList = {};
-  services.forEach((service) => {
-    serviceList[service.hostInfo.name] = {
-      address: service.address,
-      port: service.port,
-      name: service.hostInfo.name,
-    };
-  });
 
   outletTo(4, serviceList);
 }
@@ -181,8 +319,9 @@ maxAPI.addHandler("resolve", (hostname) => {
   resolve(hostname);
 });
 
-maxAPI.addHandler("discovery_start", () => {
-  startDiscovery();
+maxAPI.addHandler("discovery_start", (...args) => {
+  // If args provided, use them as service types, otherwise use defaults
+  startDiscovery(args.length > 0 ? args : null);
 });
 
 maxAPI.addHandler("discovery_stop", () => {
@@ -211,6 +350,9 @@ maxAPI.addHandler("anything", (msg) => {
 // Initialize
 maxAPI.post("mDNS Resolver initialized");
 maxAPI.post(
-  "Commands: resolve <hostname>, discovery_start, discovery_stop, discovery_list"
+  "Commands: resolve <hostname>, discovery_start [service_types...], discovery_stop, discovery_list"
+);
+maxAPI.post(
+  "Examples: discovery_start, discovery_start _http._tcp, discovery_start _http._tcp _https._tcp"
 );
 maxAPI.post("Send mDNS hostname to resolve (e.g., 'hostname.local')");
