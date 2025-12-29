@@ -64,7 +64,7 @@ function outletTo(index, ...args) {
 
 /**
  * Resolve mDNS name to IPv4 address
- * @param {string} hostname - The mDNS hostname (e.g., "hostname.local")
+ * @param {string} hostname - The mDNS hostname (e.g., "hostname.local" or "hostname")
  */
 function resolve(hostname) {
   if (!hostname || typeof hostname !== "string") {
@@ -78,6 +78,13 @@ function resolve(hostname) {
   if (hostname.endsWith("local.")) {
     hostname = hostname.slice(0, -1);
     maxAPI.post("Removed last dot from hostname:", hostname);
+  }
+
+  // If hostname doesn't end with .local and doesn't contain a dot (no domain),
+  // assume it's a local mDNS hostname and append .local
+  if (!hostname.endsWith(".local") && hostname.indexOf(".") === -1) {
+    hostname = hostname + ".local";
+    maxAPI.post("Appended .local for mDNS resolution:", hostname);
   }
 
   maxAPI.post("Resolving hostname:", hostname);
