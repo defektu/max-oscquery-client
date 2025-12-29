@@ -9,7 +9,7 @@
             "modernui": 1
         },
         "classnamespace": "box",
-        "rect": [ 40.0, 130.0, 742.0, 910.0 ],
+        "rect": [ 40.0, 130.0, 842.0, 910.0 ],
         "boxes": [
             {
                 "box": {
@@ -253,7 +253,7 @@
             {
                 "box": {
                     "id": "obj-35",
-                    "items": [ "wled-pc", ",", "Hyperion@raspberrypi", ",", "wled-1", ",", "Chataigne - Dashboard" ],
+                    "items": "CS_Tablet-Tabletmini",
                     "maxclass": "umenu",
                     "numinlets": 1,
                     "numoutlets": 3,
@@ -322,7 +322,7 @@
                             "modernui": 1
                         },
                         "classnamespace": "box",
-                        "rect": [ 1320.0, 130.0, 560.0, 910.0 ],
+                        "rect": [ 956.0, 130.0, 463.0, 910.0 ],
                         "visible": 1,
                         "boxes": [
                             {

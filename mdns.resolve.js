@@ -302,47 +302,78 @@ function stopDiscovery() {
  * List all currently discovered services
  */
 function listServices() {
-  const serviceList = {};
+  try {
+    const serviceList = {};
 
-  // Add OSCQuery services
-  if (oscQueryDiscovery) {
-    const oscServices = oscQueryDiscovery.getServices();
-    oscServices.forEach((service) => {
+    // Add OSCQuery services
+    if (oscQueryDiscovery) {
       try {
-        const name = service.hostInfo
-          ? service.hostInfo.name
-          : `OSCQuery-${service.address}`;
-        serviceList[name] = {
-          address: service.address,
-          port: service.port,
-          name: name,
-          type: "oscjson._tcp.local",
-        };
+        const oscServices = oscQueryDiscovery.getServices();
+        oscServices.forEach((service) => {
+          try {
+            const name = service.hostInfo
+              ? service.hostInfo.name
+              : `OSCQuery-${service.address}`;
+            serviceList[name] = {
+              address: service.address,
+              port: service.port,
+              name: name,
+              type: "oscjson._tcp.local",
+            };
+          } catch (e) {
+            maxAPI.post(
+              "Error processing OSCQuery service:",
+              e && e.message ? e.message : String(e)
+            );
+          }
+        });
       } catch (e) {
-        // Skip services without hostInfo
+        maxAPI.post(
+          "Error getting OSCQuery services:",
+          e && e.message ? e.message : String(e)
+        );
       }
-    });
+    }
+
+    // Add generic discovered services
+    try {
+      discoveredServices.forEach((serviceInfo, key) => {
+        try {
+          serviceList[serviceInfo.name] = {
+            address: serviceInfo.address,
+            port: serviceInfo.port,
+            name: serviceInfo.name,
+            type: serviceInfo.fullType,
+          };
+        } catch (e) {
+          maxAPI.post(
+            "Error processing discovered service:",
+            e && e.message ? e.message : String(e)
+          );
+        }
+      });
+    } catch (e) {
+      maxAPI.post(
+        "Error iterating discovered services:",
+        e && e.message ? e.message : String(e)
+      );
+    }
+
+    const count = Object.keys(serviceList).length;
+    maxAPI.post("Found", count, "service(s)");
+
+    if (count === 0) {
+      maxAPI.post("No services discovered yet");
+      return;
+    }
+
+    outletTo(4, serviceList);
+  } catch (e) {
+    const errorMsg =
+      "Error in listServices:" + (e && e.message ? e.message : String(e));
+    maxAPI.post("Error:", errorMsg);
+    outletTo(1, errorMsg);
   }
-
-  // Add generic discovered services
-  discoveredServices.forEach((serviceInfo, key) => {
-    serviceList[serviceInfo.name] = {
-      address: serviceInfo.address,
-      port: serviceInfo.port,
-      name: serviceInfo.name,
-      type: serviceInfo.fullType,
-    };
-  });
-
-  const count = Object.keys(serviceList).length;
-  maxAPI.post("Found", count, "service(s)");
-
-  if (count === 0) {
-    maxAPI.post("No services discovered yet");
-    return;
-  }
-
-  outletTo(4, serviceList);
 }
 
 // Initialize Max API handlers
