@@ -24,6 +24,7 @@
  */
 
 const maxAPI = require("max-api");
+const dns = require("dns");
 const {
   OSCQueryDiscovery,
   DiscoveredService,
@@ -79,11 +80,34 @@ function resolve(hostname) {
     maxAPI.post("Removed last dot from hostname:", hostname);
   }
 
-  // mDNS resolution functionality has been removed
-  const errorMsg =
-    "mDNS resolution not available (mdns-resolver package removed)";
-  maxAPI.post("Error:", errorMsg);
-  outletTo(1, errorMsg);
+  maxAPI.post("Resolving hostname:", hostname);
+
+  // Use Node.js built-in dns.lookup() for hostname resolution
+  // This works for both regular DNS and mDNS (.local) if mDNS is configured on the system
+  dns.lookup(
+    hostname,
+    {
+      family: 4, // IPv4 only
+      all: false, // Return first address only
+    },
+    (err, address, family) => {
+      if (err) {
+        const errorMsg = `Failed to resolve ${hostname}: ${err.message}`;
+        maxAPI.post("Error:", errorMsg);
+        outletTo(1, errorMsg);
+        return;
+      }
+
+      if (address) {
+        maxAPI.post("Resolved", hostname, "to", address);
+        outletTo(0, address);
+      } else {
+        const errorMsg = `No address found for ${hostname}`;
+        maxAPI.post("Error:", errorMsg);
+        outletTo(1, errorMsg);
+      }
+    }
+  );
 }
 
 // Initialize discovery
