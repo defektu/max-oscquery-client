@@ -115,10 +115,10 @@ function getObjectInfo(box, index) {
     if (parameter_enable === 0) {
       post(
         "Object '" +
-          varname +
-          "' (" +
-          box.maxclass +
-          ") parameter_enable is disabled\n"
+        varname +
+        "' (" +
+        box.maxclass +
+        ") parameter_enable is disabled\n"
       );
       return null;
     }
@@ -143,20 +143,20 @@ function getObjectInfo(box, index) {
     info.value = currentValue;
     post(
       "Object '" +
-        varname +
-        "' (" +
-        box.maxclass +
-        ") current value: " +
-        currentValue +
-        "\n"
+      varname +
+      "' (" +
+      box.maxclass +
+      ") current value: " +
+      currentValue +
+      "\n"
     );
   } catch (e) {
     post(
       "Object '" +
-        varname +
-        "' (" +
-        box.maxclass +
-        ") current value: (unable to read)\n"
+      varname +
+      "' (" +
+      box.maxclass +
+      ") current value: (unable to read)\n"
     );
   }
 
@@ -350,10 +350,10 @@ function scan() {
       } catch (e2) {
         post(
           "Failed to create MaxobjListener for " +
-            objInfo.path +
-            ": " +
-            e2 +
-            "\n"
+          objInfo.path +
+          ": " +
+          e2 +
+          "\n"
         );
       }
     }
@@ -523,8 +523,8 @@ function msg_dictionary(data) {
   if (pathParts.length < 2) {
     post(
       "Invalid path format. Expected: /PatchName/ObjectName, got: " +
-        path +
-        "\n"
+      path +
+      "\n"
     );
     return;
   }
@@ -541,10 +541,10 @@ function msg_dictionary(data) {
   if (incomingPatchName !== state.patchName) {
     post(
       "Patch name mismatch. Expected: " +
-        state.patchName +
-        ", got: " +
-        incomingPatchName +
-        "\n"
+      state.patchName +
+      ", got: " +
+      incomingPatchName +
+      "\n"
     );
     return;
   }
@@ -569,12 +569,12 @@ function msg_dictionary(data) {
     box.message(value);
     post(
       "Updated value for '" +
-        objectVarname +
-        "' to " +
-        value +
-        " (path: " +
-        path +
-        ")\n"
+      objectVarname +
+      "' to " +
+      value +
+      " (path: " +
+      path +
+      ")\n"
     );
   } catch (e) {
     post("Failed to set value for " + objectVarname + ": " + e + "\n");

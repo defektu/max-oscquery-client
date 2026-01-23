@@ -55,13 +55,19 @@ function outletTo(index, ...args) {
     case 4:
       tag = "service_list"; // List of services
       break;
+    case 5:
+      tag = "logs"; // Logs parameter
+      break;
     default:
       tag = "unknown";
   }
   // Send with routing tag as first argument
   maxAPI.outlet(tag, ...args);
 }
-
+function logger(message, ...args) {
+  // maxAPI.post(5, message, ...args);
+  outletTo(5, message, ...args);
+}
 /**
  * Resolve mDNS name to IPv4 address
  * @param {string} hostname - The mDNS hostname (e.g., "hostname.local" or "hostname")
@@ -69,7 +75,7 @@ function outletTo(index, ...args) {
 function resolve(hostname) {
   if (!hostname || typeof hostname !== "string") {
     const errorMsg = "Invalid hostname provided";
-    maxAPI.post("Error:", errorMsg);
+    logger("Error:", errorMsg);
     outletTo(1, errorMsg);
     return;
   }
@@ -77,17 +83,17 @@ function resolve(hostname) {
   // if it ends with .local. remove last dot
   if (hostname.endsWith("local.")) {
     hostname = hostname.slice(0, -1);
-    maxAPI.post("Removed last dot from hostname:", hostname);
+    logger("Removed last dot from hostname:", hostname);
   }
 
   // If hostname doesn't end with .local and doesn't contain a dot (no domain),
   // assume it's a local mDNS hostname and append .local
   if (!hostname.endsWith(".local") && hostname.indexOf(".") === -1) {
     hostname = hostname + ".local";
-    maxAPI.post("Appended .local for mDNS resolution:", hostname);
+    logger("Appended .local for mDNS resolution:", hostname);
   }
 
-  maxAPI.post("Resolving hostname:", hostname);
+  logger("Resolving hostname:", hostname);
 
   // Use Node.js built-in dns.lookup() for hostname resolution
   // This works for both regular DNS and mDNS (.local) if mDNS is configured on the system
@@ -100,17 +106,17 @@ function resolve(hostname) {
     (err, address, family) => {
       if (err) {
         const errorMsg = `Failed to resolve ${hostname}: ${err.message}`;
-        maxAPI.post("Error:", errorMsg);
+        logger("Error:", errorMsg);
         outletTo(1, errorMsg);
         return;
       }
 
       if (address) {
-        maxAPI.post("Resolved", hostname, "to", address);
+        logger("Resolved", hostname, "to", address);
         outletTo(0, address);
       } else {
         const errorMsg = `No address found for ${hostname}`;
-        maxAPI.post("Error:", errorMsg);
+        logger("Error:", errorMsg);
         outletTo(1, errorMsg);
       }
     }
@@ -128,7 +134,7 @@ let discoveredServices = new Map(); // Map of "address:port" -> service info
  */
 function startGenericDiscovery(serviceTypes = ["_http._tcp"]) {
   if (genericDiscovery) {
-    maxAPI.post("Generic discovery already running");
+    logger("Generic discovery already running");
     return;
   }
 
@@ -137,7 +143,7 @@ function startGenericDiscovery(serviceTypes = ["_http._tcp"]) {
     serviceTypes: serviceTypes,
     protocol: "tcp",
     errorCallback: (err) => {
-      maxAPI.post("Generic discovery error:", err.message);
+      logger("Generic discovery error:", err.message);
       outletTo(1, err.message);
     },
   });
@@ -146,11 +152,11 @@ function startGenericDiscovery(serviceTypes = ["_http._tcp"]) {
     const key = `${serviceInfo.address}:${serviceInfo.port}`;
     discoveredServices.set(key, serviceInfo);
 
-    maxAPI.post("=== Generic Service Discovered ===");
-    maxAPI.post("  Address:", serviceInfo.address);
-    maxAPI.post("  Port:", serviceInfo.port);
-    maxAPI.post("  Name:", serviceInfo.name);
-    maxAPI.post("  Type:", serviceInfo.fullType);
+    logger("=== Generic Service Discovered ===");
+    logger("  Address:", serviceInfo.address);
+    logger("  Port:", serviceInfo.port);
+    logger("  Name:", serviceInfo.name);
+    logger("  Type:", serviceInfo.fullType);
 
     listServices();
     outletTo(
@@ -167,7 +173,7 @@ function startGenericDiscovery(serviceTypes = ["_http._tcp"]) {
     const existingService = discoveredServices.get(key);
 
     if (existingService) {
-      maxAPI.post(
+      logger(
         "Generic service removed:",
         serviceInfo.address,
         "port:",
@@ -180,7 +186,7 @@ function startGenericDiscovery(serviceTypes = ["_http._tcp"]) {
   });
 
   genericDiscovery.start();
-  maxAPI.post(
+  logger(
     "Generic mDNS discovery started for types:",
     serviceTypes.join(", ")
   );
@@ -197,7 +203,7 @@ function stopGenericDiscovery() {
   genericDiscovery.stop();
   genericDiscovery = null;
   discoveredServices.clear();
-  maxAPI.post("Generic mDNS discovery stopped");
+  logger("Generic mDNS discovery stopped");
 }
 
 /**
@@ -205,21 +211,21 @@ function stopGenericDiscovery() {
  */
 function startOSCQueryDiscovery() {
   if (oscQueryDiscovery) {
-    maxAPI.post("OSCQuery discovery already running");
+    logger("OSCQuery discovery already running");
     return;
   }
 
   oscQueryDiscovery = new OSCQueryDiscovery();
 
   oscQueryDiscovery.on("up", (service) => {
-    maxAPI.post("=== OSCQuery Service Discovered ===");
-    maxAPI.post("--- Basic Service Info ---");
-    maxAPI.post("  Address:", service.address);
-    maxAPI.post("  Port:", service.port);
+    logger("=== OSCQuery Service Discovered ===");
+    logger("--- Basic Service Info ---");
+    logger("  Address:", service.address);
+    logger("  Port:", service.port);
 
     try {
       const serviceName = service.hostInfo ? service.hostInfo.name : "Unknown";
-      maxAPI.post("  Name:", serviceName);
+      logger("  Name:", serviceName);
       listServices();
       outletTo(
         2,
@@ -230,13 +236,13 @@ function startOSCQueryDiscovery() {
       );
     } catch (error) {
       const errorMsg = `Failed to get service info: ${error.message}`;
-      maxAPI.post("Error:", errorMsg);
+      logger("Error:", errorMsg);
       outletTo(1, errorMsg);
     }
   });
 
   oscQueryDiscovery.on("down", (service) => {
-    maxAPI.post(
+    logger(
       "OSCQuery service removed:",
       service.address,
       "port:",
@@ -248,12 +254,12 @@ function startOSCQueryDiscovery() {
 
   oscQueryDiscovery.on("error", (error) => {
     const errorMsg = error && error.message ? error.message : String(error);
-    maxAPI.post("OSCQuery discovery error:", errorMsg);
+    logger("OSCQuery discovery error:", errorMsg);
     outletTo(1, errorMsg);
   });
 
   oscQueryDiscovery.start();
-  maxAPI.post("OSCQuery discovery started");
+  logger("OSCQuery discovery started");
 }
 
 /**
@@ -266,7 +272,7 @@ function stopOSCQueryDiscovery() {
 
   oscQueryDiscovery.stop();
   oscQueryDiscovery = null;
-  maxAPI.post("OSCQuery discovery stopped");
+  logger("OSCQuery discovery stopped");
 }
 
 /**
@@ -295,7 +301,7 @@ function startDiscovery(serviceTypes) {
 function stopDiscovery() {
   stopOSCQueryDiscovery();
   stopGenericDiscovery();
-  maxAPI.post("All discovery stopped");
+  logger("All discovery stopped");
 }
 
 /**
@@ -321,14 +327,14 @@ function listServices() {
               type: "oscjson._tcp.local",
             };
           } catch (e) {
-            maxAPI.post(
+            logger(
               "Error processing OSCQuery service:",
               e && e.message ? e.message : String(e)
             );
           }
         });
       } catch (e) {
-        maxAPI.post(
+        logger(
           "Error getting OSCQuery services:",
           e && e.message ? e.message : String(e)
         );
@@ -346,24 +352,24 @@ function listServices() {
             type: serviceInfo.fullType,
           };
         } catch (e) {
-          maxAPI.post(
+          logger(
             "Error processing discovered service:",
             e && e.message ? e.message : String(e)
           );
         }
       });
     } catch (e) {
-      maxAPI.post(
+      logger(
         "Error iterating discovered services:",
         e && e.message ? e.message : String(e)
       );
     }
 
     const count = Object.keys(serviceList).length;
-    maxAPI.post("Found", count, "service(s)");
+    logger("Found", count, "service(s)");
 
     if (count === 0) {
-      maxAPI.post("No services discovered yet");
+      logger("No services discovered yet");
       return;
     }
 
@@ -371,7 +377,7 @@ function listServices() {
   } catch (e) {
     const errorMsg =
       "Error in listServices:" + (e && e.message ? e.message : String(e));
-    maxAPI.post("Error:", errorMsg);
+    logger("Error:", errorMsg);
     outletTo(1, errorMsg);
   }
 }
@@ -410,11 +416,11 @@ maxAPI.addHandler("anything", (msg) => {
 });
 
 // Initialize
-maxAPI.post("mDNS Resolver initialized");
-maxAPI.post(
+logger("mDNS Resolver initialized");
+logger(
   "Commands: resolve <hostname>, discovery_start [service_types...], discovery_stop, discovery_list"
 );
-maxAPI.post(
+logger(
   "Examples: discovery_start, discovery_start _http._tcp, discovery_start _http._tcp _https._tcp"
 );
-maxAPI.post("Send mDNS hostname to resolve (e.g., 'hostname.local')");
+logger("Send mDNS hostname to resolve (e.g., 'hostname.local')");

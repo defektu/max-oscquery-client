@@ -56,6 +56,9 @@ function outletTo(index, ...args) {
     case 4:
       tag = "sent"; // Sent parameter
       break;
+    case 5:
+      tag = "logs"; // Logs parameter
+      break;
     default:
       tag = "unknown";
   }
@@ -63,12 +66,16 @@ function outletTo(index, ...args) {
   maxAPI.outlet(tag, ...args);
 }
 
+function logger(message, ...args) {
+  // maxAPI.post(5, message, ...args);
+  outletTo(5, message, ...args);
+}
 /**
  * Parse command line arguments
  */
 function parseArgs() {
   const args = process.argv.slice(2);
-  maxAPI.post({ args: args });
+  logger({ args: args });
 
   const updateModeArg = args.find((arg) => arg.startsWith("update_mode="));
   const updateMode = updateModeArg
@@ -122,8 +129,8 @@ state.updateMode = updateMode;
 state.baseUrl = baseUrl;
 state.autoconnect = autoconnect;
 
-maxAPI.post("node version: ", process.version);
-maxAPI.post(
+logger("node version: ", process.version);
+logger(
   "AUTOINIT: baseUrl: ",
   baseUrl,
   "updateMode: ",
@@ -175,7 +182,7 @@ const connectionManager = new ConnectionManager(state, parameterManager, {
     outletTo(4, sentObject);
   },
   onError: (error) => {
-    maxAPI.post(
+    logger(
       "Connection error:",
       error && error.message ? error.message : String(error)
     );
@@ -185,14 +192,14 @@ const connectionManager = new ConnectionManager(state, parameterManager, {
     );
   },
   onLog: (message, ...args) => {
-    maxAPI.post(message, ...args);
+    logger(message, ...args);
   },
 });
 
 // Initialize reconnection manager
 reconnectionManager = new ReconnectionManager(state, connectionManager, {
   onLog: (message, ...args) => {
-    maxAPI.post(message, ...args);
+    logger(message, ...args);
   },
 });
 
@@ -202,7 +209,7 @@ maxAPI.addHandler("connect", (url) => {
   state.baseUrl = url || state.baseUrl;
   reconnectionManager.clear();
   connectionManager.connect(state.baseUrl).catch((error) => {
-    maxAPI.post("Connect failed:", error.message);
+    logger("Connect failed:", error.message);
     reconnectionManager.schedule();
   });
 });
@@ -216,12 +223,12 @@ maxAPI.addHandler("disconnect", () => {
 
 maxAPI.addHandler("autoconnect", (value) => {
   state.autoconnect = value ? true : false;
-  maxAPI.post("autoconnect: ", state.autoconnect);
+  logger("autoconnect: ", state.autoconnect);
 });
 
 maxAPI.addHandler("autoreconnect", (value) => {
   state.autoreconnect = value ? true : false;
-  maxAPI.post("autoreconnect: ", state.autoreconnect);
+  logger("autoreconnect: ", state.autoreconnect);
   if (!state.autoreconnect) {
     reconnectionManager.stop();
   } else if (!state.connected && !state.manualDisconnect && state.baseUrl) {
@@ -231,7 +238,7 @@ maxAPI.addHandler("autoreconnect", (value) => {
 
 maxAPI.addHandler("reconnect_interval", (ms) => {
   reconnectionManager.setInterval(ms);
-  maxAPI.post("reconnect_interval: ", state.reconnectInterval, "ms");
+  logger("reconnect_interval: ", state.reconnectInterval, "ms");
 });
 
 maxAPI.addHandler("timeout", (ms) => {
@@ -239,13 +246,13 @@ maxAPI.addHandler("timeout", (ms) => {
 });
 
 maxAPI.addHandler("refresh_params", () => {
-  maxAPI.post("Refreshing parameter list");
+  logger("Refreshing parameter list");
   connectionManager.refreshList();
 });
 
 maxAPI.addHandler("update_mode", (value) => {
   if (!state.paramsDict) {
-    maxAPI.post("paramsDict not initialized");
+    logger("paramsDict not initialized");
     return;
   }
   state.updateMode = value === "true" || value === true;
@@ -253,20 +260,20 @@ maxAPI.addHandler("update_mode", (value) => {
   if (state.updateMode && state.paramsDict) {
     // Update mode was turned on, output the current state
     outletTo(0, state.paramsDict);
-    maxAPI.post("Update mode enabled, outputting current state");
+    logger("Update mode enabled, outputting current state");
   } else {
-    maxAPI.post("Update mode disabled");
+    logger("Update mode disabled");
   }
 });
 
 maxAPI.addHandler("ping", () => {
-  maxAPI.post("Received ping, sending pong");
+  logger("Received ping, sending pong");
   outletTo(5, "pong"); // Sends: others pong
 });
 
 maxAPI.addHandler("send", (path, ...args) => {
   if (path === undefined || args.length === 0) {
-    maxAPI.post("Path and value are required");
+    logger("Path and value are required");
     return;
   }
 
@@ -278,10 +285,10 @@ maxAPI.addHandler("send", (path, ...args) => {
 });
 
 // Initialize
-maxAPI.post("OSCQuery Client initialized");
+logger("OSCQuery Client initialized");
 if (state.autoconnect && state.baseUrl) {
   connectionManager.connect(state.baseUrl).catch((error) => {
-    maxAPI.post("AutoConnect failed:", error.message);
+    logger("AutoConnect failed:", error.message);
     if (state.autoreconnect) {
       reconnectionManager.schedule();
     }

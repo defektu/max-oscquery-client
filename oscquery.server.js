@@ -82,6 +82,9 @@ function outletTo(index, ...args) {
     case 3:
       tag = "host_info"; // Host info
       break;
+    case 5:
+      tag = "logs"; // Logs parameter
+      break;
     default:
       tag = "unknown";
   }
@@ -116,13 +119,13 @@ function parseArgs() {
   const autostartArg = args.find((arg) => arg.startsWith("autostart="));
   const autostart = autostartArg
     ? autostartArg.split("=")[1] === "true" ||
-      autostartArg.split("=")[1] === "1"
+    autostartArg.split("=")[1] === "1"
     : true; // Default to true
 
   const broadcastArg = args.find((arg) => arg.startsWith("broadcast="));
   const broadcast = broadcastArg
     ? broadcastArg.split("=")[1] === "true" ||
-      broadcastArg.split("=")[1] === "1"
+    broadcastArg.split("=")[1] === "1"
     : true; // Default to true
 
   const descriptionArg = args.find((arg) => arg.startsWith("description="));
@@ -192,9 +195,7 @@ function logger(...args) {
 
   if (state.logging.tag) {
     const message = state.logging.tag + " " + args.join(" ");
-    maxAPI.post(message);
-  } else {
-    maxAPI.post(...args);
+    outletTo(5, message);
   }
 }
 
@@ -697,8 +698,7 @@ function loadFromJSON(clientName, jsonPathOrData) {
     }
 
     logger(
-      `\nLoaded ${successCount} methods for client ${clientName} successfully${
-        errorCount > 0 ? `, ${errorCount} errors` : ""
+      `\nLoaded ${successCount} methods for client ${clientName} successfully${errorCount > 0 ? `, ${errorCount} errors` : ""
       }`
     );
   } catch (error) {
