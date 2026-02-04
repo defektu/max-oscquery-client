@@ -325,8 +325,14 @@ function mapMaxTypeToOSCType(maxType) {
 
 /**
  * Convert Max range format to OSCQuery range format
+ * Handles MIN/MAX (numeric range) and VALS (menu/enum labels, TouchDesigner-style)
  */
 function convertMaxRange(maxRange, min, max) {
+  // Menu/enum: range.VALS (list of allowed labels)
+  if (maxRange && maxRange.VALS && Array.isArray(maxRange.VALS)) {
+    return { vals: maxRange.VALS };
+  }
+
   // Prefer explicit min/max if available
   if (min !== undefined && max !== undefined) {
     return { min, max };

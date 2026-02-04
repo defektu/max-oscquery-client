@@ -9,7 +9,7 @@
             "modernui": 1
         },
         "classnamespace": "box",
-        "rect": [ 40.0, 130.0, 422.0, 910.0 ],
+        "rect": [ 40.0, 128.0, 422.0, 910.0 ],
         "boxes": [
             {
                 "box": {
@@ -253,7 +253,7 @@
             {
                 "box": {
                     "id": "obj-35",
-                    "items": [ "Hyperion@raspberrypi", ",", "wled-1" ],
+                    "items": [ "Hyperion@raspberrypi", ",", "wled-1", ",", "Chataigne - Dashboard" ],
                     "maxclass": "umenu",
                     "numinlets": 1,
                     "numoutlets": 3,
@@ -590,6 +590,8 @@
                                     "saved_object_attributes": {
                                         "autostart": 1,
                                         "defer": 0,
+                                        "node_bin_path": "",
+                                        "npm_bin_path": "",
                                         "watch": 1
                                     },
                                     "text": "node.script mdns.resolve @autostart 1 @watch 1",
@@ -874,9 +876,45 @@
                             "modernui": 1
                         },
                         "classnamespace": "box",
-                        "rect": [ 997.0, 130.0, 422.0, 910.0 ],
+                        "rect": [ -924.0, 128.0, 442.0, 910.0 ],
                         "visible": 1,
                         "boxes": [
+                            {
+                                "box": {
+                                    "id": "obj-3",
+                                    "items": [ "test1", ",", "test2", ",", "test3" ],
+                                    "maxclass": "umenu",
+                                    "numinlets": 1,
+                                    "numoutlets": 3,
+                                    "outlettype": [ "int", "", "" ],
+                                    "parameter_enable": 1,
+                                    "patching_rect": [ 370.0, 716.0, 100.0, 22.0 ],
+                                    "presentation": 1,
+                                    "presentation_rect": [ 370.0, 716.0, 100.0, 22.0 ],
+                                    "saved_attribute_attributes": {
+                                        "valueof": {
+                                            "parameter_enum": [ "test1", "test2", "test3" ],
+                                            "parameter_longname": "umenu",
+                                            "parameter_mmax": 2,
+                                            "parameter_modmode": 0,
+                                            "parameter_shortname": "umenu",
+                                            "parameter_type": 2
+                                        }
+                                    },
+                                    "varname": "umenu"
+                                }
+                            },
+                            {
+                                "box": {
+                                    "id": "obj-50",
+                                    "maxclass": "button",
+                                    "numinlets": 1,
+                                    "numoutlets": 1,
+                                    "outlettype": [ "bang" ],
+                                    "parameter_enable": 0,
+                                    "patching_rect": [ 28.0, 98.5, 24.0, 24.0 ]
+                                }
+                            },
                             {
                                 "box": {
                                     "id": "obj-4",
@@ -897,7 +935,7 @@
                                             "parameter_type": 3
                                         }
                                     },
-                                    "text": "xcvlnh",
+                                    "text": "test1",
                                     "varname": "textedit[1]"
                                 }
                             },
@@ -921,7 +959,7 @@
                                             "parameter_type": 3
                                         }
                                     },
-                                    "text": "zxvo",
+                                    "text": "test2",
                                     "varname": "textedit"
                                 }
                             },
@@ -1480,6 +1518,12 @@
                             {
                                 "patchline": {
                                     "destination": [ "obj-84", 0 ],
+                                    "source": [ "obj-50", 0 ]
+                                }
+                            },
+                            {
+                                "patchline": {
+                                    "destination": [ "obj-84", 0 ],
                                     "source": [ "obj-6", 0 ]
                                 }
                             },
@@ -1550,7 +1594,7 @@
                             "modernui": 1
                         },
                         "classnamespace": "box",
-                        "rect": [ 34.0, 117.0, 1391.0, 929.0 ],
+                        "rect": [ 134.0, 174.0, 1391.0, 929.0 ],
                         "boxes": [
                             {
                                 "box": {
@@ -2032,6 +2076,8 @@
                                         "args": [ "service_name=MaxOscQueryServer", "broadcast=true" ],
                                         "autostart": 1,
                                         "defer": 0,
+                                        "node_bin_path": "",
+                                        "npm_bin_path": "",
                                         "watch": 1
                                     },
                                     "text": "node.script oscquery.server @args service_name=MaxOscQueryServer broadcast=true @autostart 1 @watch 1",
@@ -3014,8 +3060,6 @@
                                         "args": [ "url=http://localhost:5678", "update_mode=true", "autoconnect=true" ],
                                         "autostart": 1,
                                         "defer": 0,
-                                        "node_bin_path": "",
-                                        "npm_bin_path": "",
                                         "watch": 1
                                     },
                                     "text": "node.script oscquery.client @args url=http://localhost:5678 update_mode=true autoconnect=true @autostart 1 @watch 1",
@@ -3601,6 +3645,7 @@
         "parameters": {
             "obj-101::obj-25": [ "button[2]", "button[2]", 0 ],
             "obj-108::obj-19": [ "live.numbox[1]", "live.numbox", 0 ],
+            "obj-108::obj-3": [ "umenu", "umenu", 0 ],
             "obj-108::obj-32": [ "dial", "dial", 0 ],
             "obj-108::obj-38": [ "button", "button", 0 ],
             "obj-108::obj-4": [ "textedit[1]", "textedit[1]", 0 ],
@@ -3614,14 +3659,6 @@
             "obj-108::obj-74": [ "live.tab", "live.tab", 0 ],
             "obj-108::obj-8": [ "textedit", "textedit", 0 ],
             "obj-31::obj-13": [ "button[3]", "button[2]", 0 ],
-            "parameterbanks": {
-                "0": {
-                    "index": 0,
-                    "name": "",
-                    "parameters": [ "-", "-", "-", "-", "-", "-", "-", "-" ],
-                    "buttons": [ "-", "-", "-", "-", "-", "-", "-", "-" ]
-                }
-            },
             "inherited_shortname": 1
         },
         "autosave": 0

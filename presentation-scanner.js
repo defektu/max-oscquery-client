@@ -205,22 +205,32 @@ function getObjectInfo(box, index) {
 
     case "umenu":
     case "live.menu":
-    case "live.tab":
-      info.type = "enum";
+    case "live.tab": {
+      info.type = "string";
       try {
-        const items = box.getattr("items");
-        post("items: " + items + "\n");
-        if (items) {
-          info.enum_values = items;
-          info.steps = items.length;
-          info.range = { VALS: items };
+        let items = box.getattr("_parameter_range") || box.getattr("items");
+        items = items ? (Array.isArray(items) ? items : [items]) : [];
+        if (items.length === 0) break;
+        post("Menu items: " + JSON.stringify(items, makeSafeReplacer()) + "\n");
+        info.enum_values = items;
+        info.steps = items.length;
+        info.range = { VALS: items };
+        info.attributes = { _parameter_range: items };
+
+        const raw = info.value;
+        if (typeof raw === "number") {
+          const i = Math.floor(raw);
+          info.value = i >= 0 && i < items.length ? items[i] : items[0];
+        } else if (typeof raw === "string" && items.indexOf(raw) >= 0) {
+          info.value = raw;
         } else {
-          post("Possible values: (no items found)\n");
+          info.value = items[0];
         }
       } catch (e) {
-        post("Possible values: (unable to read items)\n");
+        post("Menu items: unable to read\n");
       }
       break;
+    }
     case "textedit":
       info.type = "string";
       break;
@@ -256,6 +266,9 @@ function createDictObject(obj) {
   }
   if (obj.enum_values) {
     dictObj.enum_values = obj.enum_values;
+  }
+  if (obj.attributes && typeof obj.attributes === "object") {
+    dictObj.attributes = obj.attributes;
   }
 
   return dictObj;
@@ -306,17 +319,38 @@ function cleanupListeners() {
 
 /**
  * Max object change callback for MaxobjListener
- * @param {MaxobjListenerData} data - Max object change data
+ * For menu/tab, always send string label (never enum int) so objectlist/remote get same value as initial JSON.
+ * Note: getattr("maxclass") may not work in listener context, so we also detect menu/tab from stored enum_values.
  */
 function maxobjChanged(data) {
   const maxobj = data.maxobject;
   const varname =
     (maxobj && maxobj.getattr && maxobj.getattr("varname")) || "unknown";
   const path = "/" + varname;
-  const changedDict = {
-    path: path,
-    value: data.value,
-  };
+  let value = data.value;
+  const maxclass = (maxobj && (maxobj.maxclass || (maxobj.getattr && maxobj.getattr("maxclass")))) || "";
+  const fromMaxclass =
+    maxclass === "umenu" || maxclass === "live.menu" || maxclass === "live.tab";
+  const stored = state.presentationObjects.find(function (o) {
+    return (o.path === path || o.varname === varname) && o.enum_values && o.enum_values.length > 0;
+  });
+  const isMenuOrTab = fromMaxclass || !!stored;
+
+  if (isMenuOrTab && typeof value === "number" && !isNaN(value)) {
+    let items = (maxobj && maxobj.getattr && (maxobj.getattr("_parameter_range") || maxobj.getattr("items"))) || null;
+    items = items ? (Array.isArray(items) ? items : [items]) : [];
+    if (items.length === 0 && stored && stored.enum_values) {
+      items = stored.enum_values;
+    }
+    const idx = Math.floor(value);
+    if (items.length > 0 && idx >= 0 && idx < items.length) {
+      value = items[idx];
+    } else if (isMenuOrTab) {
+      value = String(value);
+    }
+  }
+
+  const changedDict = { path: path, value: value };
   outletTo(1, "change", { changedDict });
 }
 
@@ -426,28 +460,44 @@ function generate_osc_paths() {
 }
 
 /**
- * Get current value of an object
- * @param {string} varname - Variable name
- * @returns {*} Current value or null
+ * Get current value of an object.
+ * For menu/tab, returns string label (not enum int).
  */
 function getvalue(varname) {
   const box = patcher.getnamed(varname);
 
-  if (box) {
-    try {
-      const value = box.getvalueof();
-      const valueDict = {
-        varname: varname,
-        value: value,
-      };
-      outletTo(1, "value", valueDict);
-      return value;
-    } catch (e) {
-      post("Failed to get value for " + varname + ": " + e + "\n");
-    }
-  }
+  if (!box) return null;
 
-  return null;
+  try {
+    let value = box.getvalueof();
+    const maxclass = box.getattr && box.getattr("maxclass");
+    const isMenuOrTab =
+      maxclass === "umenu" || maxclass === "live.menu" || maxclass === "live.tab";
+
+    if (isMenuOrTab && typeof value === "number" && !isNaN(value)) {
+      let items = box.getattr("_parameter_range") || box.getattr("items");
+      items = items ? (Array.isArray(items) ? items : [items]) : [];
+      if (items.length === 0) {
+        const stored = state.presentationObjects.find(function (o) {
+          return o.varname === varname && o.enum_values && o.enum_values.length > 0;
+        });
+        if (stored && stored.enum_values) items = stored.enum_values;
+      }
+      const idx = Math.floor(value);
+      if (items.length > 0 && idx >= 0 && idx < items.length) {
+        value = items[idx];
+      } else {
+        value = String(value);
+      }
+    }
+
+    const valueDict = { varname: varname, value: value };
+    outletTo(1, "value", valueDict);
+    return value;
+  } catch (e) {
+    post("Failed to get value for " + varname + ": " + e + "\n");
+    return null;
+  }
 }
 
 /**
@@ -457,18 +507,42 @@ function getvalue(varname) {
  */
 function setvalue(varname, value) {
   const box = patcher.getnamed(varname);
+  if (!box) return;
 
-  if (box) {
-    try {
-      // [textedit] expects "set" + text; raw string is interpreted as unknown selector
-      if (box.maxclass === "textedit") {
-        box.message("set", value != null ? String(value) : "");
-      } else {
-        box.message(value);
-      }
-    } catch (e) {
-      post("Failed to set value for " + varname + ": " + e + "\n");
+  // OSCQuery often sends value as single-element array; unwrap for message targets
+  if (Array.isArray(value) && value.length === 1) {
+    value = value[0];
+  }
+
+  try {
+    if (box.maxclass === "textedit") {
+      box.message("set", value != null ? String(value) : "");
+      return;
     }
+    if (
+      box.maxclass === "umenu" ||
+      box.maxclass === "live.menu" ||
+      box.maxclass === "live.tab"
+    ) {
+      // Menu/tab: accept label (string) or index (number). Resolve label -> index.
+      if (typeof value === "string") {
+        let items = box.getattr("_parameter_range") || box.getattr("items");
+        items = items ? (Array.isArray(items) ? items : [items]) : [];
+        if (items.length > 0) {
+          const idx = items.indexOf(value);
+          if (idx >= 0) {
+            box.message(idx);
+            return;
+          }
+        }
+      } else if (typeof value === "number" && !isNaN(value)) {
+        box.message(Math.floor(value));
+        return;
+      }
+    }
+    box.message(value);
+  } catch (e) {
+    post("Failed to set value for " + varname + ": " + e + "\n");
   }
 }
 
@@ -539,10 +613,9 @@ function msg_dictionary(data) {
   const incomingPatchName = pathParts[0];
   const objectVarname = pathParts[1];
 
-  // Check if patch name matches
-  if (state.patchName === null || state.patchName === undefined) {
-    post("Patch name not set. Use set_patchname to set it first.\n");
-    return;
+  // If patch name not set, use first path segment so remote can send without prior set_patchname
+  if (state.patchName == null || state.patchName === undefined) {
+    state.patchName = incomingPatchName;
   }
 
   if (incomingPatchName !== state.patchName) {
