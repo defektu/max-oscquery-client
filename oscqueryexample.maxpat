@@ -590,8 +590,6 @@
                                     "saved_object_attributes": {
                                         "autostart": 1,
                                         "defer": 0,
-                                        "node_bin_path": "",
-                                        "npm_bin_path": "",
                                         "watch": 1
                                     },
                                     "text": "node.script mdns.resolve @autostart 1 @watch 1",
@@ -876,20 +874,43 @@
                             "modernui": 1
                         },
                         "classnamespace": "box",
-                        "rect": [ 997.0, 130.0, 883.0, 910.0 ],
+                        "rect": [ 997.0, 130.0, 422.0, 910.0 ],
+                        "visible": 1,
                         "boxes": [
                             {
                                 "box": {
-                                    "id": "obj-8",
-                                    "linecount": 2,
+                                    "id": "obj-4",
                                     "maxclass": "textedit",
                                     "numinlets": 1,
                                     "numoutlets": 4,
                                     "outlettype": [ "", "int", "", "" ],
                                     "parameter_enable": 1,
-                                    "patching_rect": [ 375.0, 660.0, 100.0, 50.0 ],
+                                    "patching_rect": [ 151.0, 808.0, 100.0, 50.0 ],
                                     "presentation": 1,
-                                    "presentation_linecount": 2,
+                                    "presentation_rect": [ 375.0, 765.5, 100.0, 50.0 ],
+                                    "saved_attribute_attributes": {
+                                        "valueof": {
+                                            "parameter_invisible": 1,
+                                            "parameter_longname": "textedit[1]",
+                                            "parameter_modmode": 0,
+                                            "parameter_shortname": "textedit[1]",
+                                            "parameter_type": 3
+                                        }
+                                    },
+                                    "text": "xcvlnh",
+                                    "varname": "textedit[1]"
+                                }
+                            },
+                            {
+                                "box": {
+                                    "id": "obj-8",
+                                    "maxclass": "textedit",
+                                    "numinlets": 1,
+                                    "numoutlets": 4,
+                                    "outlettype": [ "", "int", "", "" ],
+                                    "parameter_enable": 1,
+                                    "patching_rect": [ 255.0, 808.0, 100.0, 50.0 ],
+                                    "presentation": 1,
                                     "presentation_rect": [ 385.0, 687.0, 100.0, 50.0 ],
                                     "saved_attribute_attributes": {
                                         "valueof": {
@@ -900,7 +921,7 @@
                                             "parameter_type": 3
                                         }
                                     },
-                                    "text": "547486985146519685198",
+                                    "text": "zxvo",
                                     "varname": "textedit"
                                 }
                             },
@@ -1163,9 +1184,9 @@
                                     "presentation_rect": [ 301.69490122795105, 191.52541482448578, 100.0, 20.0 ],
                                     "saved_attribute_attributes": {
                                         "valueof": {
-                                            "parameter_enum": [ "one", "two", "three" ],
+                                            "parameter_enum": [ "one", "two", "three", "four" ],
                                             "parameter_longname": "live.tab",
-                                            "parameter_mmax": 2,
+                                            "parameter_mmax": 3,
                                             "parameter_modmode": 0,
                                             "parameter_shortname": "live.tab",
                                             "parameter_type": 2,
@@ -1207,7 +1228,7 @@
                                     "numoutlets": 2,
                                     "outlettype": [ "", "float" ],
                                     "parameter_enable": 1,
-                                    "patching_rect": [ 245.0, 599.1071371436119, 39.0, 95.0 ],
+                                    "patching_rect": [ 246.98857879638672, 605.0, 39.0, 95.0 ],
                                     "presentation": 1,
                                     "presentation_rect": [ 293.2203253507614, 91.52541947364807, 39.0, 95.0 ],
                                     "saved_attribute_attributes": {
@@ -1366,7 +1387,7 @@
                                             "parameter_type": 2
                                         }
                                     },
-                                    "varname": "Element"
+                                    "varname": "livemenu"
                                 }
                             },
                             {
@@ -1389,7 +1410,7 @@
                                             "parameter_unitstyle": 0
                                         }
                                     },
-                                    "varname": "Data"
+                                    "varname": "livenumbox"
                                 }
                             },
                             {
@@ -1529,8 +1550,7 @@
                             "modernui": 1
                         },
                         "classnamespace": "box",
-                        "rect": [ 997.0, 130.0, 883.0, 910.0 ],
-                        "visible": 1,
+                        "rect": [ 34.0, 117.0, 1391.0, 929.0 ],
                         "boxes": [
                             {
                                 "box": {
@@ -2012,8 +2032,6 @@
                                         "args": [ "service_name=MaxOscQueryServer", "broadcast=true" ],
                                         "autostart": 1,
                                         "defer": 0,
-                                        "node_bin_path": "",
-                                        "npm_bin_path": "",
                                         "watch": 1
                                     },
                                     "text": "node.script oscquery.server @args service_name=MaxOscQueryServer broadcast=true @autostart 1 @watch 1",
@@ -2996,6 +3014,8 @@
                                         "args": [ "url=http://localhost:5678", "update_mode=true", "autoconnect=true" ],
                                         "autostart": 1,
                                         "defer": 0,
+                                        "node_bin_path": "",
+                                        "npm_bin_path": "",
                                         "watch": 1
                                     },
                                     "text": "node.script oscquery.client @args url=http://localhost:5678 update_mode=true autoconnect=true @autostart 1 @watch 1",
@@ -3583,6 +3603,7 @@
             "obj-108::obj-19": [ "live.numbox[1]", "live.numbox", 0 ],
             "obj-108::obj-32": [ "dial", "dial", 0 ],
             "obj-108::obj-38": [ "button", "button", 0 ],
+            "obj-108::obj-4": [ "textedit[1]", "textedit[1]", 0 ],
             "obj-108::obj-49": [ "live.menu", "live.menu", 0 ],
             "obj-108::obj-53": [ "live.numbox", "live.numbox", 0 ],
             "obj-108::obj-61": [ "live.button", "live.button", 0 ],
@@ -3593,6 +3614,14 @@
             "obj-108::obj-74": [ "live.tab", "live.tab", 0 ],
             "obj-108::obj-8": [ "textedit", "textedit", 0 ],
             "obj-31::obj-13": [ "button[3]", "button[2]", 0 ],
+            "parameterbanks": {
+                "0": {
+                    "index": 0,
+                    "name": "",
+                    "parameters": [ "-", "-", "-", "-", "-", "-", "-", "-" ],
+                    "buttons": [ "-", "-", "-", "-", "-", "-", "-", "-" ]
+                }
+            },
             "inherited_shortname": 1
         },
         "autosave": 0

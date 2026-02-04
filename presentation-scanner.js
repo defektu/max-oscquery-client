@@ -101,6 +101,23 @@ function makeSafeReplacer() {
 }
 
 /**
+ * Log all attributes of a box object
+ * @param {Object} box - Max box object
+ */
+function logBoxAttributes(box) {
+  const attributeNames = box.getattrnames() || [];
+  post("Attributes of '" + box.getattr("varname") + "' (" + box.maxclass + "):\n" + JSON.stringify(attributeNames, makeSafeReplacer()) + "\n");
+  attributeNames.forEach(function (attr) {
+    try {
+      const value = box.getattr(attr);
+      post("  " + attr + ": " + JSON.stringify(value, makeSafeReplacer()) + "\n");
+    } catch (e) {
+      post("  " + attr + ": (unable to read)\n");
+    }
+  });
+}
+
+/**
  * Extract detailed information from an object
  * @param {Object} box - Max box object
  * @param {number} index - Object index
@@ -177,11 +194,8 @@ function getObjectInfo(box, index) {
       break;
     case "toggle":
     case "live.toggle":
-      info.type = "bool";
-      info.min = 0;
-      info.max = 1;
-      info.steps = 2;
-      info.range = { MIN: 0, MAX: 1 };
+    case "live.text":
+      info.type = "bang";
       break;
 
     case "button":
@@ -195,6 +209,7 @@ function getObjectInfo(box, index) {
       info.type = "enum";
       try {
         const items = box.getattr("items");
+        post("items: " + items + "\n");
         if (items) {
           info.enum_values = items;
           info.steps = items.length;
@@ -206,22 +221,9 @@ function getObjectInfo(box, index) {
         post("Possible values: (unable to read items)\n");
       }
       break;
-
-    case "live.text":
-      info.type = "text";
-      try {
-        const modes = box.getattr("mode");
-        if (modes === 1) {
-          info.type = "bool";
-          info.range = { MIN: 0, MAX: 1 };
-        } else {
-          post("Possible values: text string\n");
-        }
-      } catch (e) {
-        post("Possible values: text string\n");
-      }
+    case "textedit":
+      info.type = "string";
       break;
-
     default:
       post("Object '" + varname + "' (" + box.maxclass + ") not supported\n");
       return null; // ignore non-live classes
@@ -458,7 +460,12 @@ function setvalue(varname, value) {
 
   if (box) {
     try {
-      box.message(value);
+      // [textedit] expects "set" + text; raw string is interpreted as unknown selector
+      if (box.maxclass === "textedit") {
+        box.message("set", value != null ? String(value) : "");
+      } else {
+        box.message(value);
+      }
     } catch (e) {
       post("Failed to set value for " + varname + ": " + e + "\n");
     }
@@ -564,21 +571,16 @@ function msg_dictionary(data) {
     return;
   }
 
-  // Update the value
-  try {
-    box.message(value);
-    post(
-      "Updated value for '" +
-      objectVarname +
-      "' to " +
-      value +
-      " (path: " +
-      path +
-      ")\n"
-    );
-  } catch (e) {
-    post("Failed to set value for " + objectVarname + ": " + e + "\n");
-  }
+  setvalue(objectVarname, value);
+  post(
+    "Updated value for '" +
+    objectVarname +
+    "' to " +
+    value +
+    " (path: " +
+    path +
+    ")\n"
+  );
 }
 
 /**
